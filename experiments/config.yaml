@@ -1,0 +1,224 @@
+scratch_env: SCRATCH
+home_env: HOME
+
+source: WISEJ1738
+instruments: [ HST, Gemini, MIRI] #in order of spectral range
+wav:
+  - [0.98, 2.2]
+  - [0.98, 2.2]
+  - [4.9, 19]
+tag: None
+D: 7.34
+spectrum_filename: [spectrum.csv, "spectrum.csv", "spectrum.csv"]
+
+spectral_info:
+  obs_spectrum: MIRI+HST+Gemini
+  wavelength_range: 0.98-2.2, 4.9-19 um
+  spectral_range: sim_wavH[115:552] conv_rebin, sim_wavG[mask], sim_wavM[1:1299]
+
+paths: 
+  sim_paths:
+    cloudfree:
+      miri: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI/cloudfree/
+      gemini: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/simulation/cloudfree/
+      hst: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudfree/
+    cloudy:
+      miri: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI/cloudy/
+      gemini: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudy/
+      hst: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudy/
+  savepath: [JWST/runs/WISEJ1738/model_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI+HST+Gemini/cloudfree/]
+
+
+simulator:
+  callable:
+    emission_model:
+      module: utils.emission_model_general
+      function: emission_model_diseq
+    PT_profile:
+      module: utils.PT_profiles
+      function: pt_profile
+  line_species:
+    - CH4_hargreaves
+    - H2O_Exomol
+    - CO2
+    - CO_all_iso_HITEMP
+    - H2S
+    - NH3
+    - PH3
+    - 15NH3
+    - HCN
+    - TiO_all_Exomol
+    - VO
+  cloud_species: null
+  rayleigh_species: [H2, He]
+  continuum_opacities: [H2-H2, H2-He]
+  names:
+    - R_pl
+    - mass
+    - T_bottom
+    - temp_node_1
+    - temp_node_2
+    - temp_node_3
+    - temp_node_4
+    - temp_node_5
+    - temp_node_6
+    - temp_node_7
+    - temp_node_8
+    - temp_node_9
+    - H2O_mol_scale
+    - CO2_mol_scale
+    - CO_mol_scale
+    - CH4_mol_scale
+    - NH3_mol_scale
+    - PH3_mol_scale
+    - H2S_mol_scale
+    - 15NH3_mol_scale
+    - HCN_mol_scale
+    - TiO_mol_scale
+    - VO_mol_scale
+    - log_X_cb_H2O(c)
+    - log_Pbase_H2O(c)
+    - fsed
+    - log_kzz
+    - sigma_lnorm
+    - Mike_Line_b_Cushing_g
+    - Mike_Line_b_Cushing_h
+    - Mike_Line_b_MIRI
+  pressure_scaling: 10
+  pressure_simple: 100
+  pressure_width: 3
+  scale: 1.0e5
+  N_nodes: 10
+  N_data_sets: 9.0
+  D_pl: 9.9
+  AMR: false
+  do_scat_emis: false
+  contribution: true
+  PT_plot_mode: false
+  conv: true
+  type: [cloudfree]
+
+Prior:
+  - ["$R_{P}$", 0.5, 3]
+  - ["$Mass$", 1, 50]
+  - ["$T_{bottom}$", 100, 9000]
+  - ["$tnode1$", 0.2, 1.0]
+  - ["$tnode2$", 0.2, 1.0]
+  - ["$tnode3$", 0.2, 1.0]
+  - ["$tnode4$", 0.2, 1.0]
+  - ["$tnode5$", 0.2, 1.0]
+  - ["$tnode6$", 0.2, 1.0]
+  - ["$tnode7$", 0.2, 1.0]
+  - ["$tnode8$", 0.2, 1.0]
+  - ["$tnode9$", 0.2, 1.0]
+  - ["$H_2O$", -10, 0]
+  - ["$CO_2$", -10, 0]
+  - ["$CO$", -10, 0]
+  - ["$CH_4$", -10, 0]
+  - ["$NH_3$", -10, 0]
+  - ["$PH_3$", -10, 0]
+  - ["$H_2S$", -10, 0]
+  - ["$^{15}NH_3$", -10, 0]
+  - ["$HCN$", -10, 0]
+  - ["$TiO$", -10, 0]
+  - ["$VO$", -10, 0]
+  - ["$b_{g}$", -15, -7]
+  - ["$b_{w}$", -15, -7]
+  - ["$b_{m}$", -15, -7]
+
+model_title : RploggTbT1-9H2OCO2COCH4NH3PH3H2S15NH3HCNTiOVObgbwbm_unregPT
+
+MLmodel_config:
+  model: cloudfree
+
+  model_name: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+
+  embedding:
+      miri:
+        - [3, 5, 7]
+        - [3, 5, 7]
+        - [2, 3, 5]
+        - [3, 5, 7]
+        - [3, 5, 7]
+        - [2, 3, 5]
+        - [2, 3, 5]
+        - [3, 5, 7]
+        - [2, 3, 5]
+        - [2, 3, 5]
+        - [3, 5, 7]
+        - [2, 3, 5]
+      gemini:
+        - [2, 3, 5]
+        - [2, 3, 5]
+        - [3, 5, 7]
+        - [2, 3, 5]
+        - [2, 3, 5]
+        - [3, 5, 7]
+        - [3, 5, 7]
+        - [3, 5, 7]
+        - [3, 5, 7]
+        - [3, 5, 7]
+        - [3, 5, 7]
+        - [3, 5, 7]
+      miri_output: [64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64]
+      gemini_output: [16, 4, 4, 16, 4, 4, 8, 8, 16, 8, 8, 16]
+
+  estimator:
+    module: code2explore.NPE_new
+    class: NPEWithEmbedding_sepEmb
+    instrument: MIRI+HST+Gemini????
+    hidden_features_no: [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
+    hidden_features:
+      - [512]
+      - [256]
+      - [256]
+      - [512]
+      - [256]
+      - [256]
+      - [512]
+      - [512]
+      - [256]
+      - [512]
+      - [512]
+      - [256]
+    no_of_params: [26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26]
+    transforms: [5, 5, 5, 5, 5, 5, 3, 5, 5, 3, 5, 5]
+    signal: [32, 16, 16, 32, 16, 16, 16, 16, 16, 16, 16, 16]
+
+Loss: 
+  loss_type: [BNPELoss, BNPELoss, BNPELoss, NPELoss, NPELoss, NPELoss, BNPELoss, BNPELoss, BNPELoss, NPELoss, NPELoss, NPELoss] 
+  
+  optimizer:
+    type: AdamW
+    init_lr: [5.0e-4, 1.0e-3, 1.0e-4, 5.0e-4, 1.0e-3, 1.0e-4, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-3, 1.0e-3, 1.0e-4]
+    weight_decay: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-2, 1.0e-4, 1.0e-4, 1.0e-2, 1.0e-4, 1.0e-4]
+
+  scheduler:
+    type: ReduceLROnPlateau
+    factor: 0.5
+    min_lr: [1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8]
+    patience: [32, 32, 8, 32, 32, 8, 32, 8, 8, 32, 8, 8]
+    threshold: 0.01
+
+pipe:
+  module: pipes.pipe_HST_Gemini_MIRI_cloudfree
+  function: pipe
+
+training:
+  epochs: [800, 800, 800, 800, 800, 800, 800, 800, 800, 801, 800, 800]
+  epoch_fin: [800, 800, 800, 800, 800, 800, 800, 800, 800, 100, 800, 800]
+  batch_size: [1024, 256, 256, 1024, 256, 256, 1024, 256, 256, 1024, 256, 256]
+  gradient_steps_train: 1700
+  gradient_steps_valid: 170
+  clip_grad_norm: 1.0
+  stop_criterion: late_lr
+
+
+wandb:
+  project: WISE1738
+  array: 1
+  cpus: 2
+  gpus: 1
+  ram: 16GB
+  time: 10-00:00:00
+
