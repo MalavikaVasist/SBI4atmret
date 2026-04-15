@@ -4,15 +4,26 @@ import os
 import torch
 from pathlib import Path
 
-from ..sbi4atmret.utils.config import Config
+import yaml
+from pydantic import ValidationError
+from ..sbi4atmret.config.models import MLModelConfig
 from ..sbi4atmret.simulators.simulator import build_simulator
 from .data import load_observations_data, load_datasets
 from ..sbi4atmret.Train.trainer import run_training
 
 from dawgz import job, schedule
 
-# Load configuration
-config = Config("config.yaml")
+# Load configuration from YAML and validate with Pydantic
+with open("config.yaml", "r") as f:
+    config_dict = yaml.safe_load(f)
+
+try:
+    validated_config = MLModelConfig(**config_dict)
+except ValidationError as exc:
+    raise RuntimeError(f"Configuration validation failed: {exc}") from exc
+
+# Use the validated config as a plain dict for backward compatibility with existing code
+config = validated_config.model_dump()
 
 scratch = os.environ.get(config['scratch_env'])
 home = os.environ.get(config['home_env'])
@@ -30,7 +41,7 @@ def save_checkpoint(runpath, estimator, optimizer, epoch):
         'optimizer': optimizer.state_dict(),
     }, runpath / f'states_{epoch}.pth')
 
-array, cpus, gpus, ram, time = config["wandb"]["array"], config["wandb"]["cpus"], config["wandb"]["gpus"], config["wandb"]["ram"], config["wandb"]["time"]
+array, cpus, gpus, ram, time = config.wandb.array, config.wandb.cpus, config.wandb.gpus, config.wandb.ram, config.wandb.time
 
 # Run training
 @job(array=array, cpus=cpus, gpus=gpus, ram=ram, time=time)

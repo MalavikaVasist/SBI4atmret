@@ -29,5 +29,32 @@ wheels/
 *.egg
 MANIFEST
 
+#ignore git push command file
+# git_push.txt
+
+# ignore dawgz created
+.dawgz
+
+# ignore python checkpoints
+.ipynb_checkpoints
+
+# ignore joblib
+joblib
+
+# ignore pycache
+__pycache__
+
+# ignore wandb
+wandb
 
 .pytest_cache/
+
+# others
+*/*.pkl
+*/*.csv
+*/*.pdf 
+*/*.pickle  
+*/*.dat 
+*/*.json 
+!*/*.txt 
+*/*.npy

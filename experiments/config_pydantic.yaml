@@ -1,0 +1,125 @@
+scratch_env: SCRATCH
+home_env: HOME
+
+source: WISEJ1738
+instruments: [HST, Gemini, MIRI]
+wav:
+  - [0.98, 2.2]
+  - [0.98, 2.2]
+  - [4.9, 19]
+tag: null
+
+paths:
+  sim_paths:
+    cloudfree:
+      miri: JWST/simulations/cloudfree/MIRI/
+      gemini: JWST/simulations/cloudfree/HST/simulation/
+      hst: JWST/simulations/cloudfree/HST/conv_rebinned/
+  savepath: [JWST/runs/WISEJ1738/model_cloudfree/]
+
+simulator:
+  callable:
+    emission_model:
+      module: utils.emission_model_general
+      function: emission_model_diseq
+    PT_profile:
+      module: utils.PT_profiles
+      function: pt_profile
+  type: [cloudfree]
+  line_species: [CH4_hargreaves, H2O_Exomol, CO2]
+  cloud_species: null
+  rayleigh_species: [H2, He]
+  continuum_opacities: [H2-H2, H2-He]
+  names: [R_pl, mass, T_bottom, temp_node_1, temp_node_2]
+  pressure_scaling: 10
+  pressure_simple: 100
+  pressure_width: 3
+  scale: 1.0e5
+  N_nodes: 10
+  N_data_sets: 9.0
+  D_pl: 9.9
+  AMR: false
+  do_scat_emis: false
+  contribution: true
+  PT_plot_mode: false
+  conv: true
+
+Prior:
+  - name: R_p
+    lower: 0.5
+    upper: 3.0
+  - name: Mass
+    lower: 1.0
+    upper: 50.0
+  - name: T_bottom
+    lower: 100
+    upper: 9000
+  - name: tnode1
+    lower: 0.2
+    upper: 1.0
+  - name: tnode2
+    lower: 0.2
+    upper: 1.0
+
+model_title: RploggTbT1-2H2OCO2_unregPT
+
+MLmodel_config:
+  model: cloudfree
+  model_name: [1, 2, 3]
+  embedding:
+    miri:
+      - [3, 5, 7]
+      - [3, 5, 7]
+      - [2, 3, 5]
+    gemini:
+      - [2, 3, 5]
+      - [2, 3, 5]
+      - [3, 5, 7]
+    miri_output: [64, 64, 64]
+    gemini_output: [16, 4, 4]
+  estimator:
+    module: code2explore.NPE_new
+    class: NPEWithEmbedding_sepEmb
+    instrument: MIRI+HST+Gemini
+  hidden_features:
+    - [512]
+    - [256]
+    - [256]
+  no_of_params: [26, 26, 26]
+  transforms: [5, 5, 5]
+  signal: [32, 16, 16]
+
+Loss:
+  loss_type: [BNPELoss, NPELoss, BNPELoss]
+  optimizer: &common_optimizer
+    type: AdamW
+    init_lr: [5.0e-4, 1.0e-3, 1.0e-4]
+    weight_decay: 1.0e-3
+  scheduler: &common_scheduler
+    type: ReduceLROnPlateau
+    factor: 0.5
+    min_lr: [1.0e-8, 1.0e-8, 1.0e-8]
+    patience: [32, 8, 32]
+    threshold: 0.01
+
+pipe:
+  module: pipes.pipe_HST_Gemini_MIRI_cloudfree
+  function: pipe
+
+training:
+  epochs: [800, 800, 800]
+  epoch_fin: [800, 100, 800]
+  batch_size: [1024, 256, 256]
+  gradient_steps_train: 1700
+  gradient_steps_valid: 170
+  clip_grad_norm: 1.0
+  stop_criterion: late_lr
+  checkpoint_interval: 50
+
+wandb:
+  project: WISE1738
+  array: 1
+  cpus: 2
+  gpus: 1
+  ram: 16GB
+  time: 10-00:00:00

@@ -1,7 +1,8 @@
 from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, Field, field_validator, model_validator
-import torch
 from importlib import import_module
+
+import torch
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ParameterConfig(BaseModel):
@@ -17,50 +18,6 @@ class PriorConfig(BaseModel):
     parameters: List[ParameterConfig] = Field(alias="PARAMETERS")
 
 
-class OptimizerConfig(BaseModel):
-    """Pydantic model for optimizer configuration with validation."""
-    type: str
-    lr: Optional[float] = None
-    init_lr: Optional[float] = None
-    weight_decay: Optional[float] = None
-    kwargs: Optional[Dict[str, Any]] = {}
-
-    @field_validator('type')
-    @classmethod
-    def validate_optimizer_type(cls, v):
-        """Validate that the optimizer type exists in torch.optim."""
-        try:
-            getattr(import_module("torch.optim"), v)
-        except AttributeError:
-            raise ValueError(f"Invalid optimizer type '{v}'. Must be a valid torch.optim optimizer class.")
-        return v
-
-    @model_validator(mode='after')
-    def validate_lr_fields(self):
-        """Ensure either lr or init_lr is provided."""
-        if self.lr is None and self.init_lr is None:
-            raise ValueError("Either 'lr' or 'init_lr' must be provided")
-        return self
-
-
-class SchedulerConfig(BaseModel):
-    """Pydantic model for scheduler configuration with validation."""
-    type: Optional[str] = None
-    kwargs: Optional[Dict[str, Any]] = {}
-
-    @field_validator('type')
-    @classmethod
-    def validate_scheduler_type(cls, v):
-        """Validate that the scheduler type exists in torch.optim.lr_scheduler."""
-        if v is None:
-            return v
-        try:
-            getattr(import_module("torch.optim.lr_scheduler"), v)
-        except AttributeError:
-            raise ValueError(f"Invalid scheduler type '{v}'. Must be a valid torch.optim.lr_scheduler class.")
-        return v
-
-
 class EmbeddingConfig(BaseModel):
     """Configuration for embedding layers."""
     miri: Union[List[int], int]
@@ -71,11 +28,14 @@ class EmbeddingConfig(BaseModel):
 
 class ModelConfig(BaseModel):
     """Configuration for model architecture."""
+    model_config = ConfigDict(extra='allow')
+
     embedding: EmbeddingConfig
     hidden_features: Union[List[int], int]
     no_of_params: Union[List[int], int]
     transforms: Union[List[int], int]
     signal: Union[List[int], int]
+    batch_size: Optional[Union[List[int], int]] = None
 
 
 class EstimatorConfig(BaseModel):
@@ -87,16 +47,34 @@ class EstimatorConfig(BaseModel):
 
 class LossConfig(BaseModel):
     """Configuration for loss function."""
-    loss_type: str = Field(alias="loss")
+    model_config = ConfigDict(extra='allow')
+
+    loss_type: Union[List[str], str] = Field(alias="loss_type")
     optimizer: Optional[OptimizerConfig] = None
     scheduler: Optional[SchedulerConfig] = None
+
+    @field_validator('loss_type', mode='before')
+    @classmethod
+    def validate_loss_alias(cls, v, info):
+        if v is None and isinstance(info.data, dict) and 'loss' in info.data:
+            return info.data['loss']
+        return v
 
 
 class TrainingConfig(BaseModel):
     """Configuration for training parameters."""
+    model_config = ConfigDict(extra='allow')
+
     optimizer: Optional[OptimizerConfig] = None
     scheduler: Optional[SchedulerConfig] = None
     clip_grad_norm: Optional[float] = 1.0
+    epochs: Optional[Union[List[int], int]] = None
+    epoch_fin: Optional[Union[List[int], int]] = None
+    batch_size: Optional[Union[List[int], int]] = None
+    gradient_steps_train: Optional[int] = None
+    gradient_steps_valid: Optional[int] = None
+    stop_criterion: Optional[str] = None
+    checkpoint_interval: Optional[int] = None
 
 
 class PipeConfig(BaseModel):
@@ -107,8 +85,9 @@ class PipeConfig(BaseModel):
 
 class MLModelConfig(BaseModel):
     """Top-level configuration for ML models."""
-    estimator: EstimatorConfig
-    ML_model_configs: ModelConfig
+    model_config = ConfigDict(extra='allow')
+
+    ML_model_configs: ModelConfig = Field(alias="MLmodel_config")
     Loss: Optional[LossConfig] = None
     training: Optional[TrainingConfig] = None
     pipe: Optional[PipeConfig] = None
