@@ -4,10 +4,10 @@ import os
 import torch
 from pathlib import Path
 
-from ..sbi4exoplanets.utils.config import Config
-from ..sbi4exoplanets.simulators.simulator import build_simulator
+from ..sbi4atmret.utils.config import Config
+from ..sbi4atmret.simulators.simulator import build_simulator
 from .data import load_observations_data, load_datasets
-from ..sbi4exoplanets.Train.trainer import run_training
+from ..sbi4atmret.Train.trainer import run_training
 
 from dawgz import job, schedule
 

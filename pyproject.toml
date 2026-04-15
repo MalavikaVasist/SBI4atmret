@@ -32,7 +32,10 @@ dependencies = [
     "wandb",
     "petitRADTRANS",
     "lampe",
-    "zuko",    "pyyaml",]
+    "zuko",
+    "pyyaml",
+    "pydantic>=2.0.0",
+]
 
 [project.optional-dependencies]
 dev = ["pytest", "ruff", "mypy"]

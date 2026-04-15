@@ -11,7 +11,7 @@ from lampe.utils import GDStep
 from zuko.distributions import BoxUniform
 
 from ..utils.config import Config
-from .setup import (
+from ..models.setup import (
     setup_estimator,
     setup_optimizer_and_scheduler,
     setup_loss_and_prior,
