@@ -128,12 +128,31 @@ Prior:
 
 model_title : RploggTbT1-9H2OCO2COCH4NH3PH3H2S15NH3HCNTiOVObgbwbm_unregPT
 
-MLmodel_config:
+ML_model_config:
   model: cloudfree
 
   model_name: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 
-  embedding:
+  estimator:
+    flow:
+      type: npe
+      hidden_features_no: [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
+      hidden_features:
+        - [512]
+        - [256]
+        - [256]
+        - [512]
+        - [256]
+        - [256]
+        - [512]
+        - [512]
+        - [256]
+        - [512]
+        - [512]
+        - [256]
+      transforms: [5, 5, 5, 5, 5, 5, 3, 5, 5, 3, 5, 5]
+      signal: [32, 16, 16, 32, 16, 16, 16, 16, 16, 16, 16, 16]
+    embedding:
       miri:
         - [3, 5, 7]
         - [3, 5, 7]
@@ -162,28 +181,6 @@ MLmodel_config:
         - [3, 5, 7]
       miri_output: [64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64]
       gemini_output: [16, 4, 4, 16, 4, 4, 8, 8, 16, 8, 8, 16]
-
-  estimator:
-    module: code2explore.NPE_new
-    class: NPEWithEmbedding_sepEmb
-    instrument: MIRI+HST+Gemini????
-    hidden_features_no: [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
-    hidden_features:
-      - [512]
-      - [256]
-      - [256]
-      - [512]
-      - [256]
-      - [256]
-      - [512]
-      - [512]
-      - [256]
-      - [512]
-      - [512]
-      - [256]
-    no_of_params: [26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26, 26]
-    transforms: [5, 5, 5, 5, 5, 5, 3, 5, 5, 3, 5, 5]
-    signal: [32, 16, 16, 32, 16, 16, 16, 16, 16, 16, 16, 16]
 
 Loss: 
   loss_type: [BNPELoss, BNPELoss, BNPELoss, NPELoss, NPELoss, NPELoss, BNPELoss, BNPELoss, BNPELoss, NPELoss, NPELoss, NPELoss] 

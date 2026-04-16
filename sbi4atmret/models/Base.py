@@ -1,19 +1,17 @@
 import torch
+from typing import Any, Dict, Optional
 from lampe.utils import GDStep
 from zuko.distributions import BoxUniform
+from lampe.inference import NPELoss
 
-from ..Train.Loss import BNPELoss
+
+from ..Train.losses import BNPELoss
+from .build_estimator import build_estimator as build_model_estimator
 from ..utils.load_utils import load_callable
 from ..torchutils.optimizer import get_optimizer_from_config
 from ..torchutils.scheduler import get_scheduler_from_config
-from lampe.inference import NPELoss
-from ..config import MLModelConfig
-
-
-def _select_by_index(value, index):
-    if isinstance(value, (list, tuple)):
-        return value[index]
-    return value
+from ..config.configs import BaseConfig
+from ..config.selection import select_index_config
 
 
 class Base:
@@ -25,13 +23,9 @@ class Base:
     """
 
     def __init__(self, config: dict):
-        """
-        Initialize the base model with Pydantic configuration validation.
-
-        Args:
-            config: Configuration dictionary that will be validated by Pydantic
-        """
-        self.config = MLModelConfig(**config)
+        self.config = BaseConfig(**config)
+        self.selected_index: Optional[int] = None
+        self.selected_config: Optional[Dict[str, Any]] = None
         self.estimator = None
         self.optimizer = None
         self.scheduler = None
@@ -39,55 +33,71 @@ class Base:
         self.prior = None
         self.pipe = None
 
+    def _get_active_config(self, i: int = 0) -> Dict[str, Any]:
+        if self.selected_config is not None:
+            return self.selected_config
+        return self.select_index_config(i)
+
+    def select_index_config(self, i: int) -> dict:
+        base_config = self.config.model_dump()
+        selected = select_index_config(base_config, i)
+        self.selected_index = i
+        self.selected_config = selected
+        return selected
+
+    def get_selected_config(self) -> dict:
+        if self.selected_config is None:
+            raise ValueError('No model index selected. Call select_index_config(i) first.')
+        return self.selected_config
+
+    def _get_parameter_bounds(self, config: Dict[str, Any]):
+        parameter_list = config.get('Prior') 
+        if parameter_list is None:
+            raise KeyError('No Prior section found in config')
+        lower = [p['lower'] if isinstance(p, dict) else p[1] for p in parameter_list]
+        upper = [p['upper'] if isinstance(p, dict) else p[2] for p in parameter_list]
+        return lower, upper
+
+    def _build_flow_estimator(self, flow_config: Dict[str, Any]):
+        """
+        Build a flow-based estimator from the provided flow configuration.
+
+        This method is intentionally minimal and delegates the concrete model
+        type selection to `build_model.py`. If your config provides a custom
+        module/class pair, Base will use dynamic loading instead.
+        """
+        config = self.selected_config if self.selected_config is not None else self.config.model_dump()
+        return build_model_estimator(config)
+
+    def _build_estimator(self, model_configs: Dict[str, Any]):
+        estimator_cfg = model_configs.get('estimator')
+        if estimator_cfg is None:
+            # Fall back to model builder helper for legacy or alternate schema.
+            return build_model_estimator(self.selected_config if self.selected_config is not None else self.config.model_dump())
+
+        if isinstance(estimator_cfg, dict) and 'module' in estimator_cfg and 'class' in estimator_cfg:
+            return load_callable(estimator_cfg['module'], estimator_cfg['class'])(**estimator_cfg.get('kwargs', {}))
+
+        if isinstance(estimator_cfg, dict) and 'flow' in estimator_cfg:
+            return self._build_flow_estimator(estimator_cfg['flow'])
+
+        return build_model_estimator(self.selected_config if self.selected_config is not None else self.config.model_dump())
+
     def setup_estimator(self, i: int = 0):
-        """
-        Set up the estimator model from configuration.
-
-        Args:
-            i: Index for multi-model setups
-
-        Returns:
-            Initialized estimator model
-        """
-        estimator_cfg = self.config.estimator
-        model_configs = self.config.ML_model_configs
-        parameters = self.config.get_parameters()
-
-        lower = [p.lower for p in parameters]
-        upper = [p.upper for p in parameters]
-
-        estimator_class = load_callable(estimator_cfg.module, estimator_cfg.class_name)
-
-        self.estimator = estimator_class(
-            hf_miri=_select_by_index(model_configs.embedding.miri, i),
-            hf_inst=_select_by_index(model_configs.embedding.gemini, i),
-            instrument=estimator_cfg.instrument,
-            hidden_features=_select_by_index(model_configs.hidden_features, i),
-            emb_miri_output=_select_by_index(model_configs.embedding.miri_output, i),
-            emb_inst_output=_select_by_index(model_configs.embedding.gemini_output, i),
-            no_of_params=_select_by_index(model_configs.no_of_params, i),
-            transforms=_select_by_index(model_configs.transforms, i),
-            signal=_select_by_index(model_configs.signal, i),
-            LOWER=lower,
-            UPPER=upper,
-        )
+        config = self._get_active_config(i)
+        model_configs = config.get('ML_model_config')
+        self.estimator = self._build_estimator(model_configs)
+        if hasattr(self.estimator, 'cuda'):
+            self.estimator = self.estimator.cuda()
         return self.estimator
 
     def setup_loss_and_prior(self, i: int = 0):
-        """
-        Set up loss function and prior distribution.
-
-        Args:
-            i: Index for multi-model setups
-
-        Returns:
-            Tuple of (loss, prior)
-        """
-        loss_name = self.config.get_loss_type(i)
-        parameters = self.config.get_parameters()
-
-        lower = [p.lower for p in parameters]
-        upper = [p.upper for p in parameters]
+        config = self._get_active_config(i)
+        loss_config = config.get('Loss')
+        if loss_config is None:
+            raise KeyError('Loss configuration not found')
+        loss_name = loss_config['loss_type']
+        lower, upper = self._get_parameter_bounds(config)
 
         self.prior = BoxUniform(torch.tensor(lower).cuda(), torch.tensor(upper).cuda())
         if loss_name == 'NPELoss':
@@ -99,12 +109,6 @@ class Base:
         return self.loss, self.prior
 
     def network_to_device(self, device: str = 'cuda'):
-        """
-        Move the network to the specified device.
-
-        Args:
-            device: Device to move to ('cuda' or 'cpu')
-        """
         if self.estimator is not None:
             if device == 'cuda':
                 self.estimator.cuda()
@@ -112,47 +116,25 @@ class Base:
                 self.estimator.cpu()
 
     def initialize_op_scheduler(self, i: int = 0):
-        """
-        Initialize optimizer and scheduler.
-
-        Args:
-            i: Index for multi-model setups
-
-        Returns:
-            Tuple of (optimizer, step, scheduler)
-        """
         if self.estimator is None:
             raise ValueError("Estimator must be set up before initializing optimizer and scheduler")
 
-        optimizer_cfg = self.config.get_optimizer_config()
+        config = self._get_active_config(i)
+        optimizer_cfg = config.get('Loss', {}).get('optimizer') or config.get('training', {}).get('optimizer')
         if optimizer_cfg is None:
             raise KeyError("Optimizer configuration not found")
 
-        self.optimizer = get_optimizer_from_config(self.estimator.parameters(), optimizer_cfg.model_dump(), i)
-        clip = self.config.get_clip_grad_norm()
+        self.optimizer = get_optimizer_from_config(self.estimator.parameters(), optimizer_cfg, 0)
+        clip = config.get('training', {}).get('clip_grad_norm', 1.0)
         step = GDStep(self.optimizer, clip=clip)
-        scheduler_cfg = self.config.get_scheduler_config()
-        self.scheduler = get_scheduler_from_config(self.optimizer, scheduler_cfg.model_dump() if scheduler_cfg else None, i)
+        scheduler_cfg = config.get('Loss', {}).get('scheduler') or config.get('training', {}).get('scheduler')
+        self.scheduler = get_scheduler_from_config(self.optimizer, scheduler_cfg, 0)
         return self.optimizer, step, self.scheduler
 
     def log_metrics(self, metrics: dict, step: int = None):
-        """
-        Log training metrics. Override in subclasses for specific logging implementations.
-
-        Args:
-            metrics: Dictionary of metric names and values
-            step: Current training step
-        """
-        # Default implementation - subclasses should override
         print(f"Step {step}: {metrics}")
 
     def save_model(self, path: str):
-        """
-        Save the model state.
-
-        Args:
-            path: Path to save the model
-        """
         if self.estimator is not None:
             torch.save({
                 'estimator_state_dict': self.estimator.state_dict(),
@@ -160,13 +142,7 @@ class Base:
                 'scheduler_state_dict': self.scheduler.state_dict() if self.scheduler else None,
             }, path)
 
-    def load_model(self, path: str):
-        """
-        Load the model state.
-
-        Args:
-            path: Path to load the model from
-        """
+    def load_estimator(self, path: str):
         checkpoint = torch.load(path)
         if self.estimator is not None:
             self.estimator.load_state_dict(checkpoint['estimator_state_dict'])
@@ -176,18 +152,45 @@ class Base:
             self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 
     def setup_pipe(self):
-        """
-        Set up the training pipeline.
-
-        Returns:
-            Initialized pipeline function
-        """
         if self.loss is None:
             raise ValueError("Loss must be set up before setting up pipe")
 
-        if not self.config.pipe:
-            raise ValueError("Pipe configuration not found")
+        config = self.selected_config if self.selected_config is not None else self.config.model_dump()
+        pipe_config = config.get('pipe') if isinstance(config, dict) else self.config.pipe
+        if pipe_config is None:
+            raise KeyError('Pipe configuration not found')
 
-        pipe_func = load_callable(self.config.pipe.module, self.config.pipe.function)
+        if isinstance(pipe_config, dict):
+            module = pipe_config['module']
+            function = pipe_config['function']
+        else:
+            module = pipe_config.module
+            function = pipe_config.function
+
+        pipe_func = load_callable(module, function)
         self.pipe = pipe_func(self.loss)
         return self.pipe
+
+
+# Standalone functions for backward compatibility
+def setup_estimator(config, i: int = 0):
+    base = Base(config)
+    return base.setup_estimator(i)
+
+
+def setup_optimizer_and_scheduler(estimator, config, i: int = 0):
+    base = Base(config)
+    base.estimator = estimator
+    return base.initialize_op_scheduler(i)
+
+
+def setup_loss_and_prior(estimator, config, i: int = 0):
+    base = Base(config)
+    base.estimator = estimator
+    return base.setup_loss_and_prior(i)
+
+
+def setup_pipe(config, loss):
+    base = Base(config)
+    base.loss = loss
+    return base.setup_pipe()

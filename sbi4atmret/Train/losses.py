@@ -1,6 +1,21 @@
 
 import nn
 
+class LossConfig(BaseModel):
+    """Configuration for loss function."""
+    model_config = ConfigDict(extra='allow')
+
+    loss_type: Union[List[str], str] = Field(alias="loss_type")
+    optimizer: Optional[OptimizerConfig] = None
+    scheduler: Optional[SchedulerConfig] = None
+
+    @field_validator('loss_type', mode='before')
+    @classmethod
+    def validate_loss_alias(cls, v, info):
+        if v is None and isinstance(info.data, dict) and 'loss' in info.data:
+            return info.data['loss']
+        return v
+
 class BNPELoss(nn.Module):
         def __init__(self, estimator, prior, lmbda=100.0):
             super().__init__()

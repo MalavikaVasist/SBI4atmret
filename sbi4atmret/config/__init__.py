@@ -1,4 +1,4 @@
-from .models import (
+from .configs import (
     ParameterConfig,
     PriorConfig,
     OptimizerConfig,
@@ -12,6 +12,7 @@ from .models import (
     MLModelConfig,
     MetricsConfig,
 )
+from .selection import select_index_config
 
 __all__ = [
     "ParameterConfig",
@@ -26,4 +27,5 @@ __all__ = [
     "PipeConfig",
     "MLModelConfig",
     "MetricsConfig",
+    "select_index_config",
 ]
