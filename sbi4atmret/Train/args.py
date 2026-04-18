@@ -26,6 +26,22 @@ Examples:
         default='experiments',
         help='Directory containing config.yaml file (default: experiments)',
     )
+
+    parser.add_argument(
+        '--action',
+        '-c',
+        type=str,
+        default='experiments',
+        help='Directory containing config.yaml file (default: experiments)',
+    )
+
+    parser.add_argument(
+        '--checkpoint-dir',
+        '-c',
+        type=str,
+        default='experiments',
+        help='Directory containing config.yaml file (default: experiments)',
+    )
     
     return parser.parse_args()
 

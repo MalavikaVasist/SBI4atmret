@@ -9,7 +9,7 @@ def load_observations_data(config: Config):
     return observation
 
 
-def load_datasets(config: Config, scratch: str, i: int = 0):
+def load_datasets(config: Config, scratch: str):
     '''
     Load datasets for all atmospheric types and instruments as specified in the config.
     Returns: 
@@ -27,7 +27,7 @@ def load_datasets(config: Config, scratch: str, i: int = 0):
     }
     '''
     datasets = {}
-    batch_size = config["ML_model_configs"]["batch_size"][i]
+    batch_size = config["ML_model_configs"]["batch_size"]
     for atm_type in config['simulator']["type"]:
         datasets[atm_type] = {}
         for instrument in config['instruments']:

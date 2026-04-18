@@ -5,12 +5,6 @@ import torch
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
-def _select_by_index(value, index):
-    if isinstance(value, (list, tuple)):
-        return value[index]
-    return value
-
-
 class ParameterConfig(BaseModel):
     """Configuration for a single parameter with bounds."""
     name: str
@@ -88,13 +82,12 @@ class OptimizerConfig(BaseModel):
             raise ValueError("Either 'lr' or 'init_lr' must be provided")
         return self
 
-    def get_optimizer(self, model_parameters, index: int = 0):
+    def get_optimizer(self, model_parameters):
         """
         Create and return a PyTorch optimizer instance based on the configuration.
 
         Args:
             model_parameters: Model parameters to optimize.
-            index: Index for selecting from list-valued parameters.
 
         Returns:
             Initialized PyTorch optimizer instance.
@@ -105,11 +98,11 @@ class OptimizerConfig(BaseModel):
         # Select lr from lr or init_lr, handling lists
         lr_value = self.lr if self.lr is not None else self.init_lr
         if lr_value is not None:
-            kwargs['lr'] = _select_by_index(lr_value, index)
+            kwargs['lr'] = lr_value
 
         # Handle weight_decay if provided
         if self.weight_decay is not None:
-            kwargs['weight_decay'] = _select_by_index(self.weight_decay, index)
+            kwargs['weight_decay'] = self.weight_decay
 
         return opt_class(model_parameters, **kwargs)
 
@@ -132,13 +125,12 @@ class SchedulerConfig(BaseModel):
             raise ValueError(f"Invalid scheduler type '{v}'. Must be a valid torch.optim.lr_scheduler class.")
         return v
 
-    def get_scheduler(self, optimizer, index: int = 0):
+    def get_scheduler(self, optimizer):
         """
         Create and return a PyTorch scheduler instance based on the configuration.
 
         Args:
             optimizer: PyTorch optimizer instance.
-            index: Index for selecting from list-valued parameters.
 
         Returns:
             Initialized PyTorch scheduler instance or None if no scheduler configured.
@@ -148,11 +140,6 @@ class SchedulerConfig(BaseModel):
 
         scheduler_class = getattr(torch.optim.lr_scheduler, self.type)
         kwargs = self.kwargs.copy() if self.kwargs else {}
-
-        # Apply index selection to kwargs if they are lists
-        for key, value in kwargs.items():
-            if isinstance(value, (list, tuple)):
-                kwargs[key] = value[index]
 
         return scheduler_class(optimizer, **kwargs)
 
@@ -191,8 +178,8 @@ class PipeConfig(BaseModel):
 class BaseConfig(BaseModel):
     """Top-level configuration for training."""
     model_config = ConfigDict(extra='allow')
-
-    ML_model_config: ModelConfig = None
+    
+    ML_model_config: Optional[ModelConfig] = None
     Loss: Optional[LossConfig] = None
     training: Optional[TrainingConfig] = None
     pipe: Optional[PipeConfig] = None
@@ -233,6 +220,86 @@ class BaseConfig(BaseModel):
     def get_clip_grad_norm(self) -> float:
         """Get gradient clipping value."""
         return self.training.clip_grad_norm if self.training else 1.0
+
+    def select_at_index(self, i: int) -> 'BaseConfig':
+        """
+        Create a new config with all list-valued fields reduced to their i-th element.
+        
+        Args:
+            i: Index to select from list-valued fields.
+            
+        Returns:
+            A new BaseConfig instance with scalar values.
+        """
+        # Helper function to select by index
+        def _select_value(value, index):
+            if isinstance(value, (list, tuple)):
+                return value[index]
+            return value
+        
+        # Select model config
+        model_config_dict = {}
+        if self.ML_model_config:
+            mc = self.ML_model_config
+            model_config_dict = {
+                'embedding': {
+                    'miri': _select_value(mc.embedding.miri, i),
+                    'gemini': _select_value(mc.embedding.gemini, i),
+                    'miri_output': _select_value(mc.embedding.miri_output, i),
+                    'gemini_output': _select_value(mc.embedding.gemini_output, i),
+                },
+                'hidden_features': _select_value(mc.hidden_features, i),
+                'no_of_params': _select_value(mc.no_of_params, i),
+                'transforms': _select_value(mc.transforms, i),
+                'signal': _select_value(mc.signal, i),
+            }
+            if mc.batch_size is not None:
+                model_config_dict['batch_size'] = _select_value(mc.batch_size, i)
+        
+        # Select training config
+        training_dict = {}
+        if self.training:
+            tc = self.training
+            training_dict = {
+                'epochs': _select_value(tc.epochs, i),
+                'epoch_fin': _select_value(tc.epoch_fin, i),
+                'clip_grad_norm': tc.clip_grad_norm,
+                'gradient_steps_train': tc.gradient_steps_train,
+                'gradient_steps_valid': tc.gradient_steps_valid,
+                'stop_criterion': tc.stop_criterion,
+                'checkpoint_interval': tc.checkpoint_interval,
+            }
+            if tc.batch_size is not None:
+                training_dict['batch_size'] = _select_value(tc.batch_size, i)
+            if tc.optimizer:
+                training_dict['optimizer'] = tc.optimizer
+            if tc.scheduler:
+                training_dict['scheduler'] = tc.scheduler
+        
+        # Select loss config
+        loss_dict = {}
+        if self.Loss:
+            lc = self.Loss
+            loss_dict = {
+                'loss_type': _select_value(lc.loss_type, i),
+            }
+            if lc.optimizer:
+                loss_dict['optimizer'] = lc.optimizer
+            if lc.scheduler:
+                loss_dict['scheduler'] = lc.scheduler
+        
+        # Build new config dict
+        config_data = {
+            'ML_model_config': model_config_dict if model_config_dict else None,
+            'Loss': loss_dict if loss_dict else None,
+            'training': training_dict if training_dict else None,
+            'pipe': self.pipe,
+            'Prior': self.Prior,
+            'wandb': self.wandb,
+            'paths': self.paths,
+        }
+        
+        return BaseConfig(**config_data)
 
 
 class MetricsConfig(BaseModel):

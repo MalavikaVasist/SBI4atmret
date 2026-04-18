@@ -3,6 +3,7 @@ Configuration selection utilities for handling multi-model configs.
 """
 
 from typing import Dict, Any, List, Tuple, Union
+from .configs import BaseConfig
 
 
 def _select_by_index(value: Any, index: int) -> Any:
@@ -12,8 +13,23 @@ def _select_by_index(value: Any, index: int) -> Any:
     return value
 
 
+def select_config_index(config: BaseConfig, i: int) -> BaseConfig:
+    """
+    Create a per-index configuration snapshot from a BaseConfig instance.
+
+    Args:
+        config: The BaseConfig instance.
+        i: The model index to select from array-valued config fields.
+
+    Returns:
+        BaseConfig: A new config instance where indexed list values are reduced to the i'th element.
+    """
+    return config.select_at_index(i)
+
+
+# Legacy dict-based function for backward compatibility
 def _select_indexed_dict(config_dict: Dict[str, Any], i: int) -> Dict[str, Any]:
-    """Recursively select indexed values from a nested dictionary."""
+    """Recursively select indexed values from a nested dictionary (legacy)."""
     selected = {}
     for key, value in config_dict.items():
         if isinstance(value, dict):
@@ -26,7 +42,7 @@ def _select_indexed_dict(config_dict: Dict[str, Any], i: int) -> Dict[str, Any]:
 
 
 def _select_model_config(model_config: Dict[str, Any], i: int) -> Dict[str, Any]:
-    """Select model configuration for the i-th index."""
+    """Select model configuration for the i-th index (legacy)."""
     selected = {
         'model': model_config.get('model'),
         'model_name': _select_by_index(model_config.get('model_name') or model_config.get('name'), i),
@@ -70,7 +86,7 @@ def _select_training_config(training_config: Dict[str, Any], i: int) -> Dict[str
     return selected
 
 
-def select_index_config(full_config: Dict[str, Any], i: int) -> Dict[str, Any]:
+def select_config_index(full_config: Dict[str, Any], i: int) -> Dict[str, Any]:
     """
     Create a per-index configuration snapshot from the full config.
 
