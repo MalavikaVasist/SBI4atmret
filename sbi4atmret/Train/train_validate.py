@@ -1,4 +1,6 @@
 import time
+from sbi4atmret.Train import args
+from sbi4atmret.Train.train import load_model_dataset_resume
 import torch
 import torch.optim.lr_scheduler as sched
 import wandb
@@ -17,6 +19,22 @@ from ..models.Base import (
     setup_pipe,
 )
 from scripts.plotting import plot_results
+
+
+'''
+here you call the loaded estimator/model inside one training epoch. 
+the training loop goes like this :
+    - call the laoded estimator/model from the load_estimator
+    - compute the dataset via the pipe 
+    - compute the loss and backpropagate
+    - return the loss and the time taken for the epoch.
+'''
+
+def execute_training(model:"Base", dataset):
+    # Check if checkpoint file exists
+    training_config = model.config.training
+    model.run_training()
+    print()
 
 
 def train_epoch(estimator, step, trainsets, simulator, pipe, config: Mapping[str, Any]):
@@ -79,13 +97,3 @@ def log_to_wandb(run, lr, loss_train, loss_val, nans, nans_val, speed, train_len
 
 
 
-
-
-'''
-here you call the loaded estimator/model inside one training epoch. 
-the training loop goes like this :
-    - call the laoded estimator/model from the load_estimator
-    - compute the dataset via the pipe 
-    - compute the loss and backpropagate
-    - return the loss and the time taken for the epoch.
-'''

@@ -129,13 +129,9 @@ Prior:
 model_title : RploggTbT1-9H2OCO2COCH4NH3PH3H2S15NH3HCNTiOVObgbwbm_unregPT
 
 ML_model_config:
-  model: cloudfree
-
-  model_name: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-
-  estimator:
-    flow:
-      type: npe
+  flow:
+    type: NPEFlow
+    kwargs:
       hidden_features_no: [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
       hidden_features:
         - [512]
@@ -152,63 +148,72 @@ ML_model_config:
         - [256]
       transforms: [5, 5, 5, 5, 5, 5, 3, 5, 5, 3, 5, 5]
       signal: [32, 16, 16, 32, 16, 16, 16, 16, 16, 16, 16, 16]
-    embedding:
-      miri:
-        - [3, 5, 7]
-        - [3, 5, 7]
-        - [2, 3, 5]
-        - [3, 5, 7]
-        - [3, 5, 7]
-        - [2, 3, 5]
-        - [2, 3, 5]
-        - [3, 5, 7]
-        - [2, 3, 5]
-        - [2, 3, 5]
-        - [3, 5, 7]
-        - [2, 3, 5]
-      gemini:
-        - [2, 3, 5]
-        - [2, 3, 5]
-        - [3, 5, 7]
-        - [2, 3, 5]
-        - [2, 3, 5]
-        - [3, 5, 7]
-        - [3, 5, 7]
-        - [3, 5, 7]
-        - [3, 5, 7]
-        - [3, 5, 7]
-        - [3, 5, 7]
-        - [3, 5, 7]
-      miri_output: [64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64]
-      gemini_output: [16, 4, 4, 16, 4, 4, 8, 8, 16, 8, 8, 16]
+  embedding:
+    type: SoftclipResMLP
+    kwargs: 
+      bound: 100.0
+      instruments : 
+        miri:
+          hidden_features:
+            - [3, 5, 7]
+            - [3, 5, 7]
+            - [2, 3, 5]
+            - [3, 5, 7]
+            - [3, 5, 7]
+            - [2, 3, 5]
+            - [2, 3, 5]
+            - [3, 5, 7]
+            - [2, 3, 5]
+            - [2, 3, 5]
+            - [3, 5, 7]
+            - [2, 3, 5]
+          input_dim : [1298, 1298, 1298, 1298, 1298, 1298, 1298, 1298, 1298, 1298, 1298, 1298]
+          output_dim : [64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64]
+        gemini:
+          hidden_features:
+            - [2, 3, 5]
+            - [2, 3, 5]
+            - [3, 5, 7]
+            - [2, 3, 5]
+            - [2, 3, 5]
+            - [3, 5, 7]
+            - [3, 5, 7]
+            - [3, 5, 7]
+            - [3, 5, 7]
+            - [3, 5, 7]
+            - [3, 5, 7]
+            - [3, 5, 7]
+          input_dim : [434, 434, 434, 434, 434, 434, 434, 434, 434, 434, 434, 434]
+          output_dim : [16, 4, 4, 16, 4, 4, 8, 8, 16, 8, 8, 16]
 
 Loss: 
-  loss_type: [BNPELoss, BNPELoss, BNPELoss, NPELoss, NPELoss, NPELoss, BNPELoss, BNPELoss, BNPELoss, NPELoss, NPELoss, NPELoss] 
-  
-  optimizer:
-    type: AdamW
-    init_lr: [5.0e-4, 1.0e-3, 1.0e-4, 5.0e-4, 1.0e-3, 1.0e-4, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-3, 1.0e-3, 1.0e-4]
-    weight_decay: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-2, 1.0e-4, 1.0e-4, 1.0e-2, 1.0e-4, 1.0e-4]
+  type: [BNPELoss, BNPELoss, BNPELoss, NPELoss, NPELoss, NPELoss, BNPELoss, BNPELoss, BNPELoss, NPELoss, NPELoss, NPELoss] 
+  kwargs:
+    optimizer:
+      type: AdamW
+      init_lr: [5.0e-4, 1.0e-3, 1.0e-4, 5.0e-4, 1.0e-3, 1.0e-4, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-3, 1.0e-3, 1.0e-4]
+      weight_decay: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-2, 1.0e-4, 1.0e-4, 1.0e-2, 1.0e-4, 1.0e-4]
 
-  scheduler:
-    type: ReduceLROnPlateau
-    factor: 0.5
-    min_lr: [1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8]
-    patience: [32, 32, 8, 32, 32, 8, 32, 8, 8, 32, 8, 8]
-    threshold: 0.01
+    scheduler:
+      type: ReduceLROnPlateau
+      factor: 0.5
+      min_lr: [1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8]
+      patience: [32, 32, 8, 32, 32, 8, 32, 8, 8, 32, 8, 8]
+      threshold: 0.01
 
 pipe:
   module: pipes.pipe_HST_Gemini_MIRI_cloudfree
   function: pipe
 
 training:
-  epochs: [800, 800, 800, 800, 800, 800, 800, 800, 800, 801, 800, 800]
-  epoch_fin: [800, 800, 800, 800, 800, 800, 800, 800, 800, 100, 800, 800]
-  batch_size: [1024, 256, 256, 1024, 256, 256, 1024, 256, 256, 1024, 256, 256]
-  gradient_steps_train: 1700
-  gradient_steps_valid: 170
-  clip_grad_norm: 1.0
-  stop_criterion: late_lr
+  kwargs:
+    epochs: [800, 800, 800, 800, 800, 800, 800, 800, 800, 801, 800, 800]
+    epoch_fin: [800, 800, 800, 800, 800, 800, 800, 800, 800, 100, 800, 800]
+    batch_size: [1024, 256, 256, 1024, 256, 256, 1024, 256, 256, 1024, 256, 256]
+    gradient_steps_train: 1700
+    gradient_steps_valid: 170
+    clip_grad_norm: 1.0
+    stop_criterion: late_lr
 
 
 wandb:

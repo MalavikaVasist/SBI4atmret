@@ -1,8 +1,10 @@
 from typing import Any, Dict, List, Optional, Union
 from importlib import import_module
 
+from sbi4atmret.utils import config
 import torch
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+import torch.optim as optim
 
 
 class ParameterConfig(BaseModel):
@@ -15,38 +17,48 @@ class ParameterConfig(BaseModel):
 
 class PriorConfig(BaseModel):
     """Configuration for prior distribution."""
-    parameters: List[ParameterConfig] = Field(alias="PARAMETERS")
+    Prior: List[ParameterConfig] = Field(alias="Prior")
+
+    def get_parameter_bounds(self) -> (List[float], List[float]):
+        """Extract lower and upper bounds from Prior config."""
+        if not self.Prior:
+            raise KeyError('No Prior section found in config')
+        lower = [p.lower for p in self.Prior]
+        upper = [p.upper for p in self.Prior]
+        return lower, upper
+
+    def get_no_of_params(self) -> int:
+        """Get the number of parameters from the Prior config."""
+        if not self.Prior:
+            raise KeyError('No Prior section found in config')
+        return len(self.Prior)
+
+
+class InstrumentEmbeddingConfig(BaseModel):
+    hidden_features: List[List[int]]
+    output_dim: List[int]
+
+
+class EmbeddingKwargs(BaseModel):
+    limit: float
+    instruments: Dict[str, InstrumentEmbeddingConfig]
 
 
 class EmbeddingConfig(BaseModel):
-    """Configuration for embedding layers."""
-    miri: Union[List[int], int]
-    gemini: Union[List[int], int]
-    miri_output: Union[List[int], int]
-    gemini_output: Union[List[int], int]
+    type: str
+    kwargs: EmbeddingKwargs
 
-
-class ModelConfig(BaseModel):
-    """Configuration for model architecture."""
-    model_config = ConfigDict(extra='allow')
-
-    embedding: EmbeddingConfig
-    hidden_features: Union[List[int], int]
-    no_of_params: Union[List[int], int]
-    transforms: Union[List[int], int]
-    signal: Union[List[int], int]
-    batch_size: Optional[Union[List[int], int]] = None
-
+class FlowKwargs(BaseModel):
+    hidden_features_no: int
+    hidden_features: List[int]
+    transforms: int
+    signal: int
 
 class FlowConfig(BaseModel):
     """Configuration for a flow-based estimator."""
     model_config = ConfigDict(extra='allow')
 
     type: str
-    hidden_features_no: Optional[Union[List[int], int]] = None
-    hidden_features: Optional[Union[List[List[int]], List[int], int]] = None
-    transforms: Optional[Union[List[int], int]] = None
-    signal: Optional[Union[List[int], int]] = None
     kwargs: Optional[Dict[str, Any]] = None
 
 
@@ -54,7 +66,8 @@ class EstimatorConfig(BaseModel):
     """Configuration for estimator settings."""
     model_config = ConfigDict(extra='allow')
 
-    flow: FlowConfig
+    embedding: Optional[EmbeddingConfig]
+    flow: Optional[FlowConfig] 
 
 
 class OptimizerConfig(BaseModel):
@@ -179,7 +192,7 @@ class BaseConfig(BaseModel):
     """Top-level configuration for training."""
     model_config = ConfigDict(extra='allow')
     
-    ML_model_config: Optional[ModelConfig] = None
+    estimator: Optional[EstimatorConfig] = None
     Loss: Optional[LossConfig] = None
     training: Optional[TrainingConfig] = None
     pipe: Optional[PipeConfig] = None
@@ -239,8 +252,8 @@ class BaseConfig(BaseModel):
         
         # Select model config
         model_config_dict = {}
-        if self.ML_model_config:
-            mc = self.ML_model_config
+        if self.model_config:
+            mc = self.model_config
             model_config_dict = {
                 'embedding': {
                     'miri': _select_value(mc.embedding.miri, i),
@@ -290,7 +303,7 @@ class BaseConfig(BaseModel):
         
         # Build new config dict
         config_data = {
-            'ML_model_config': model_config_dict if model_config_dict else None,
+            'model_config': model_config_dict if model_config_dict else None,
             'Loss': loss_dict if loss_dict else None,
             'training': training_dict if training_dict else None,
             'pipe': self.pipe,

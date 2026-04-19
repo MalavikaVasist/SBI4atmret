@@ -6,7 +6,7 @@ from lampe.inference import NPELoss
 
 
 from ..Train.losses import BNPELoss
-from .build_estimator import build_estimator as build_model_estimator
+from .build_model import build_estimator as build_model_estimator
 from ..utils.load_utils import load_callable
 from ..torchutils.optimizer import get_optimizer_from_config
 from ..torchutils.scheduler import get_scheduler_from_config
@@ -53,37 +53,8 @@ class Base:
             raise ValueError('No model index selected. Call select_index_config(i) first.')
         return self.selected_config
 
-    def _get_parameter_bounds(self, config: BaseConfig):
-        """Extract lower and upper bounds from Prior config."""
-        if not config.Prior:
-            raise KeyError('No Prior section found in config')
-        lower = [p.lower for p in config.Prior]
-        upper = [p.upper for p in config.Prior]
-        return lower, upper
 
-    def _build_flow_estimator(self):
-        """Build a flow-based estimator from the selected config."""
-        # For backward compatibility, pass dict to build_model_estimator
-        config_dict = self.selected_config.model_dump() if self.selected_config else self.config.model_dump()
-        return build_model_estimator(config_dict)
 
-    def _build_estimator(self, model_config):
-        """Build estimator from ModelConfig."""
-        if model_config is None:
-            return build_model_estimator(self.selected_config.model_dump() if self.selected_config else self.config.model_dump())
-
-        # For backward compatibility with build_model_estimator which expects dict
-        config_dict = self.selected_config.model_dump() if self.selected_config else self.config.model_dump()
-        return build_model_estimator(config_dict)
-
-    def setup_estimator(self, i: int = 0):
-        """Set up the estimator for config index i."""
-        config = self._get_active_config(i)
-        model_config = config.ML_model_config
-        self.estimator = self._build_estimator(model_config)
-        if hasattr(self.estimator, 'cuda'):
-            self.estimator = self.estimator.cuda()
-        return self.estimator
 
     def setup_loss_and_prior(self, i: int = 0):
         """Set up loss function and prior for config index i."""
@@ -174,6 +145,98 @@ class Base:
         pipe_func = load_callable(pipe_config.module, pipe_config.function)
         self.pipe = pipe_func(self.loss)
         return self.pipe
+    
+
+    def _step_scheduler(scheduler, metric=None):
+        if scheduler is None:
+            return
+        if isinstance(scheduler, sched.ReduceLROnPlateau):
+            scheduler.step(metric)
+        else:
+            try:
+                scheduler.step()
+            except TypeError:
+                scheduler.step(metric)
+
+
+    def train(config: Union[dict, BaseConfig], datasets, simulator, observation, checkpoint_fn=None, checkpoint_interval=50):
+        """
+        Run training loop with Pydantic config.
+        
+        Args:
+            config: Configuration dict or BaseConfig instance
+            datasets: Training/validation/test datasets
+            simulator: Simulator for forward modeling
+            observation: Observation data
+            checkpoint_fn: Optional checkpoint saving function
+            checkpoint_interval: Interval for checkpointing
+            
+        Returns:
+            Tuple of (estimator, runpath)
+        """
+        # Convert to BaseConfig if dict
+        if isinstance(config, dict):
+            config = BaseConfig(**config)
+        
+        # Use attribute access on Pydantic model
+        model_name = str(config.ML_model_config.embedding.miri) if config.ML_model_config else "default"
+        
+        run = wandb.init(
+            project=config.wandb['project'] if config.wandb else 'default',
+            config={},
+            name=f"{model_name}"
+        )
+
+        estimator = setup_estimator(config, 0)
+        optimizer, step, scheduler = setup_optimizer_and_scheduler(estimator, config, 0)
+        loss, prior = setup_loss_and_prior(estimator, config, 0)
+        pipe = setup_pipe(config, loss)
+
+        savepath = Path(config.paths['savepath'][0]) if config.paths else Path('./runs')
+        runpath = savepath / run.name
+        runpath.mkdir(parents=True, exist_ok=True)
+
+        # Use attribute access for training config
+        start_epoch = config.training.epoch_fin if config.training else 0
+        end_epoch = config.training.epochs if config.training else 100
+        
+        for epoch in tqdm(range(start_epoch, end_epoch), unit='epoch'):
+            # Build dataset lists (compatible with existing data loading)
+            trainsets = [datasets[atm_type][instrument]['train'] 
+                        for atm_type in config.wandb['simulator']['type'] if config.wandb
+                        for instrument in config.wandb['instruments'] if config.wandb]
+            losses_train, duration = train_epoch(estimator, step, trainsets, simulator, pipe, config.model_dump())
+
+            validsets = [datasets[atm_type][instrument]['valid']
+                        for atm_type in config.wandb['simulator']['type'] if config.wandb
+                        for instrument in config.wandb['instruments'] if config.wandb]
+            losses_val = validate_epoch(estimator, validsets, simulator, pipe, step, config.model_dump())
+
+            log_to_wandb(run, optimizer.param_groups[0]['lr'], 
+                        torch.nanmean(losses_train), torch.nanmean(losses_val),
+                        torch.isnan(losses_train).mean(), torch.isnan(losses_val).mean(),
+                        len(losses_train) / duration, len(losses_train), len(losses_val))
+
+            _step_scheduler(scheduler, torch.nanmean(losses_val))
+
+            if checkpoint_fn is not None and epoch > 100 and epoch % checkpoint_interval == 0:
+                checkpoint_fn(runpath, estimator, optimizer, epoch)
+
+            # Use attribute access for stop criterion
+            if config.training and config.training.stop_criterion == 'early' and scheduler is not None and optimizer.param_groups[0]['lr'] <= scheduler.min_lrs[0]:
+                break
+
+        # Post-training plotting
+        testsets = [datasets[atm_type][instrument]['test']
+                for atm_type in config.wandb['simulator']['type'] if config.wandb
+                for instrument in config.wandb['instruments'] if config.wandb]
+        plot_dict = plot_results(runpath, estimator, observation, testsets, pipe, simulator, config.model_dump())
+
+        for key, fig in plot_dict.items():
+            run.log({key: wandb.Image(fig)})
+
+        run.finish()
+        return estimator, runpath
 
 
 # Standalone functions for backward compatibility

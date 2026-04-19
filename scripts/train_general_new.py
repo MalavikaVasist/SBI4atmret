@@ -12,7 +12,7 @@ from sbi4atmret.models.Base import Base
 from sbi4atmret.Train.args import parse_args, get_config_path
 from sbi4atmret.simulators.simulator import build_simulator
 from scripts.data import load_observations_data, load_datasets
-from sbi4atmret.Train.train import run_training
+from sbi4atmret.Train.setup_training import run_training
 
 from dawgz import job, schedule
 
