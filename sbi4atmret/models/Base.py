@@ -6,7 +6,7 @@ from lampe.inference import NPELoss
 
 
 from ..Train.losses import BNPELoss
-from .build_model import build_estimator as build_model_estimator
+from .build import build_estimator as build_model_estimator
 from ..utils.load_utils import load_callable
 from ..torchutils.optimizer import get_optimizer_from_config
 from ..torchutils.scheduler import get_scheduler_from_config
@@ -130,21 +130,7 @@ class Base:
         if self.scheduler and 'scheduler_state_dict' in checkpoint and checkpoint['scheduler_state_dict']:
             self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 
-    def setup_pipe(self):
-        """Set up training pipeline."""
-        if self.loss is None:
-            raise ValueError("Loss must be set up before setting up pipe")
 
-        config = self.selected_config if self.selected_config is not None else self.config
-        pipe_config = config.pipe
-        
-        if pipe_config is None:
-            raise KeyError('Pipe configuration not found')
-
-        # Use attribute access from PipeConfig
-        pipe_func = load_callable(pipe_config.module, pipe_config.function)
-        self.pipe = pipe_func(self.loss)
-        return self.pipe
     
 
     def _step_scheduler(scheduler, metric=None):

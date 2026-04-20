@@ -1,3 +1,6 @@
+import torch
+import torch.nn as nn
+
 class estimator(nn.Module):
     def __init__(self, flow, embedding):
         super().__init__()

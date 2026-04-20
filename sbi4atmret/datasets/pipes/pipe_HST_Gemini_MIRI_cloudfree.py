@@ -112,6 +112,10 @@ class Pipe_HST_Gemini_MIRI_cloudfree(BasePipe):
         xinst = torch.hstack((xh, xg))[:, index_argsort]
         x = torch.hstack((xinst, x))
 
+        '''
+        the x must be a dictionary of the form {'hst': xh, 'gemini': xg, 'miri': x} for the embedding to work. 
+        '''
+
         thetag = torch.hstack((thetag[:, :-3], thetag[:, -1:]))
         bCh = torch.unsqueeze(thetahf[:, -1], 1)
         theta = torch.hstack((thetag, bCh))

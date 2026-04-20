@@ -35,12 +35,13 @@ class PriorConfig(BaseModel):
 
 
 class InstrumentEmbeddingConfig(BaseModel):
-    hidden_features: List[List[int]]
+    hidden_features: List[int]
     output_dim: List[int]
+    input_dim: List[int]
 
 
 class EmbeddingKwargs(BaseModel):
-    limit: float
+    bound: float
     instruments: Dict[str, InstrumentEmbeddingConfig]
 
 
@@ -186,6 +187,20 @@ class PipeConfig(BaseModel):
     """Configuration for training pipeline."""
     module: str
     function: str
+
+class InstrumentConfig(BaseModel):
+    wavelength: list[float]
+    path: str
+
+class ObservationConfig(BaseModel):
+    source: str
+    simulation: bool
+    instruments: dict[str, InstrumentConfig]
+
+class DatasetConfig(BaseModel):
+    D: float
+    dataset_path: dict[str, dict[str, str]]  # condition → instrument → path
+    savepath: list[str]
 
 
 class BaseConfig(BaseModel):

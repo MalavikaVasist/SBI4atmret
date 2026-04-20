@@ -56,7 +56,7 @@ class ObservationLoader:
                                 }
             }
     OR 
-    when source "WISEJ1738" and instrument is ["miri"] and tag is ["Helena_rebinning_all_ch_together"]
+    when source "WISEJ1738" and instrument is ["miri"] and tag is ["rebinning_all_ch_together"]
     observation= {
                     "WISEJ1738": {
                                 "rebinning_all_ch_together" : {
@@ -95,7 +95,7 @@ class ObservationLoader:
 
     def _load_simulation(self):
         '''
-        [mostprobCF_simulation0_noisefree, "mostprobCF_simulation1", "mostprobCF_simulation2", "mostprobCF_simulation3",
+        tags = [mostprobCF_simulation0_noisefree, "mostprobCF_simulation1", "mostprobCF_simulation2", "mostprobCF_simulation3",
         mostprobCLavg_simulation1, mostprobCLavg_simulation2, mostprobCLavg_simulation3, mostprobCLavg_simulation0_noisefree]
 
         file_map = {

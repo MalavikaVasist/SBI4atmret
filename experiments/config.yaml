@@ -1,32 +1,38 @@
 scratch_env: SCRATCH
 home_env: HOME
 
-source: WISEJ1738
-instruments: [ HST, Gemini, MIRI] #in order of spectral range
-wav:
-  - [0.98, 2.2]
-  - [0.98, 2.2]
-  - [4.9, 19]
-tag: None
-D: 7.34
-spectrum_filename: [spectrum.csv, "spectrum.csv", "spectrum.csv"]
-
-spectral_info:
-  obs_spectrum: MIRI+HST+Gemini
-  wavelength_range: 0.98-2.2, 4.9-19 um
-  spectral_range: sim_wavH[115:552] conv_rebin, sim_wavG[mask], sim_wavM[1:1299]
-
-paths: 
-  sim_paths:
-    cloudfree:
-      miri: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI/cloudfree/
-      gemini: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/simulation/cloudfree/
-      hst: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudfree/
-    cloudy:
-      miri: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI/cloudy/
-      gemini: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudy/
-      hst: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudy/
-  savepath: [JWST/runs/WISEJ1738/model_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI+HST+Gemini/cloudfree/]
+observation:
+  source: WISEJ1738
+  instruments: 
+    hst :
+      wavelength_ranges: [0.98, 2.2]
+      path: [JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudfree/spectrum.csv]
+    gemini :
+      wavelength_ranges: [0.98, 2.2]
+      path: [JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/GEMINI/conv_rebinned/cloudfree/spectrum.csv]
+    miri :
+      wavelength_ranges: [4.9, 19]
+      path: [JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI/conv_rebinned/cloudfree/spectrum.csv]
+  simulation: false 
+  
+  dataset:
+    D: 7.34
+    dataset_path:   
+      cloudfree:
+          miri: 
+            path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI/cloudfree/
+          gemini: 
+            path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/GEMINI/cloudfree/
+          hst: 
+            path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudfree/
+      cloudy:
+          miri: 
+            path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI/cloudy/
+          gemini: 
+            path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/GEMINI/cloudy/
+          hst: 
+            path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudy/
+    savepath: [JWST/runs/WISEJ1738/model_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI+HST+Gemini/cloudfree/]
 
 
 simulator:
@@ -133,19 +139,7 @@ ML_model_config:
     type: NPEFlow
     kwargs:
       hidden_features_no: [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
-      hidden_features:
-        - [512]
-        - [256]
-        - [256]
-        - [512]
-        - [256]
-        - [256]
-        - [512]
-        - [512]
-        - [256]
-        - [512]
-        - [512]
-        - [256]
+      hidden_features: [[512], [256], [256], [512], [256], [256], [512], [512], [256], [512], [512], [256]]
       transforms: [5, 5, 5, 5, 5, 5, 3, 5, 5, 3, 5, 5]
       signal: [32, 16, 16, 32, 16, 16, 16, 16, 16, 16, 16, 16]
   embedding:
@@ -154,66 +148,42 @@ ML_model_config:
       bound: 100.0
       instruments : 
         miri:
-          hidden_features:
-            - [3, 5, 7]
-            - [3, 5, 7]
-            - [2, 3, 5]
-            - [3, 5, 7]
-            - [3, 5, 7]
-            - [2, 3, 5]
-            - [2, 3, 5]
-            - [3, 5, 7]
-            - [2, 3, 5]
-            - [2, 3, 5]
-            - [3, 5, 7]
-            - [2, 3, 5]
+          hidden_features: [[3, 5, 7], [3, 5, 7], [2, 3, 5], [3, 5, 7], [3, 5, 7], [2, 3, 5], [2,3,5], [3, 5, 7], [2, 3, 5], [2, 3, 5], [3, 5, 7], [2, 3, 5]]
           input_dim : [1298, 1298, 1298, 1298, 1298, 1298, 1298, 1298, 1298, 1298, 1298, 1298]
           output_dim : [64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64, 64]
         gemini:
-          hidden_features:
-            - [2, 3, 5]
-            - [2, 3, 5]
-            - [3, 5, 7]
-            - [2, 3, 5]
-            - [2, 3, 5]
-            - [3, 5, 7]
-            - [3, 5, 7]
-            - [3, 5, 7]
-            - [3, 5, 7]
-            - [3, 5, 7]
-            - [3, 5, 7]
-            - [3, 5, 7]
+          hidden_features: [[2, 3, 5], [2, 3, 5], [3, 5, 7], [2, 3, 5], [2, 3, 5], [3, 5, 7], [3, 5, 7], [3, 5, 7], [3, 5, 7], [3, 5, 7], [3, 5, 7], [3, 5, 7]]
           input_dim : [434, 434, 434, 434, 434, 434, 434, 434, 434, 434, 434, 434]
           output_dim : [16, 4, 4, 16, 4, 4, 8, 8, 16, 8, 8, 16]
 
 Loss: 
   type: [BNPELoss, BNPELoss, BNPELoss, NPELoss, NPELoss, NPELoss, BNPELoss, BNPELoss, BNPELoss, NPELoss, NPELoss, NPELoss] 
-  kwargs:
-    optimizer:
-      type: AdamW
-      init_lr: [5.0e-4, 1.0e-3, 1.0e-4, 5.0e-4, 1.0e-3, 1.0e-4, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-3, 1.0e-3, 1.0e-4]
-      weight_decay: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-2, 1.0e-4, 1.0e-4, 1.0e-2, 1.0e-4, 1.0e-4]
-
-    scheduler:
-      type: ReduceLROnPlateau
-      factor: 0.5
-      min_lr: [1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8]
-      patience: [32, 32, 8, 32, 32, 8, 32, 8, 8, 32, 8, 8]
-      threshold: 0.01
+  
 
 pipe:
   module: pipes.pipe_HST_Gemini_MIRI_cloudfree
   function: pipe
 
 training:
-  kwargs:
-    epochs: [800, 800, 800, 800, 800, 800, 800, 800, 800, 801, 800, 800]
-    epoch_fin: [800, 800, 800, 800, 800, 800, 800, 800, 800, 100, 800, 800]
-    batch_size: [1024, 256, 256, 1024, 256, 256, 1024, 256, 256, 1024, 256, 256]
-    gradient_steps_train: 1700
-    gradient_steps_valid: 170
-    clip_grad_norm: 1.0
-    stop_criterion: late_lr
+  optimizer:
+    type: AdamW
+    kwargs:
+      init_lr: [5.0e-4, 1.0e-3, 1.0e-4, 5.0e-4, 1.0e-3, 1.0e-4, 1.0e-3, 1.0e-3, 1.0e-4, 1.0e-3, 1.0e-3, 1.0e-4]
+      weight_decay: [1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-3, 1.0e-2, 1.0e-4, 1.0e-4, 1.0e-2, 1.0e-4, 1.0e-4]
+  scheduler:
+    type: ReduceLROnPlateau
+    kwargs:
+      factor: 0.5
+      min_lr: [1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8, 1.0e-8]
+      patience: [32, 32, 8, 32, 32, 8, 32, 8, 8, 32, 8, 8]
+      threshold: 0.01
+  epochs: [800, 800, 800, 800, 800, 800, 800, 800, 800, 801, 800, 800]
+  batch_size: [1024, 256, 256, 1024, 256, 256, 1024, 256, 256, 1024, 256, 256]
+  epoch_fin: [800, 800, 800, 800, 800, 800, 800, 800, 800, 100, 800, 800]
+  gradient_steps_train: 1700
+  gradient_steps_valid: 170
+  clip_grad_norm: 1.0
+  stop_criterion: late_lr
 
 
 wandb:

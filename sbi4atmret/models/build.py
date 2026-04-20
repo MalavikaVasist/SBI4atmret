@@ -7,13 +7,14 @@ from pathlib import Path
 from typing import Any
 
 from sbi4atmret.MLmodel import estimator
-from sbi4atmret.config.configs import EstimatorConfig
+from sbi4atmret.config.configs import BaseConfig, EstimatorConfig
 from sbi4atmret.utils import config
 from sbi4atmret.MLmodel.flows import build_flow
 from sbi4atmret.MLmodel.embedding import build_embedding
 from scripts.train_general import load_callable
 
 from lampe.nn import ResMLP
+from lampe.data import H5Dataset
 from lampe.distributions import NPE
 import torch
 import torch.nn as nn
@@ -33,41 +34,21 @@ def build_flow(flow_config):
     flow_type = flow_config.type 
     flow = load_callable("sbi4atmret.MLmodel.flows", flow_type)
     return flow
-                    
-def build_model(config):
-    flow_config, embedding_config, prior_config = EstimatorConfig(**config["flow"], **config["embedding"], **config["Prior"])
-    embedding = build_embedding(embedding_config)
-    flow = build_flow(flow_config, prior_config, embedding_config) 
+                
+
+def build_model(ml_config):
+    estimator_config = EstimatorConfig(
+        embedding=ml_config.get("embedding"),  
+        flow=ml_config.get("flow")
+    )
+    
+    embedding = build_embedding(estimator_config.embedding)
+    flow = build_flow(estimator_config.flow)
     model = estimator(flow, embedding)   
     return model
+
+
    
-
-
-# def _build_flow_estimator(self):
-#         """Build a flow-based estimator from the selected config."""
-#         # For backward compatibility, pass dict to build_model_estimator
-#         config_dict = self.selected_config.model_dump() if self.selected_config else self.config.model_dump()
-#         return build_model_estimator(config_dict)
-
-#     def _build_estimator(self, model_config):
-#         """Build estimator from ModelConfig."""
-#         if model_config is None:
-#             return build_model_estimator(self.selected_config.model_dump() if self.selected_config else self.config.model_dump())
-
-#         # For backward compatibility with build_model_estimator which expects dict
-#         config_dict = self.selected_config.model_dump() if self.selected_config else self.config.model_dump()
-#         return build_model_estimator(config_dict)
-
-#     def setup_estimator(self, i: int = 0):
-#         """Set up the estimator for config index i."""
-#         config = self._get_active_config(i)
-#         model_config = config.ML_model_config
-#         self.estimator = self._build_estimator(model_config)
-#         if hasattr(self.estimator, 'cuda'):
-#             self.estimator = self.estimator.cuda()
-#         return self.estimator
-
-        
 
 # class NPEWithEmbedding_sepEmb(nn.Module):
 #     def __init__(self, 
