@@ -30,7 +30,7 @@ class Base:
         self.scheduler = None
         self.loss = None
 
-    def build(self):
+    def setup_estimator(self):
         estimator_config = self.config.estimator
         embedding_config = estimator_config.embedding
         flow_config = estimator_config.flow
@@ -50,47 +50,8 @@ class Base:
         self.estimator = EstimatorBase(flow, embedding)
 
         return self
+
     
-
-    def _get_active_config(self, i: int = 0) -> BaseConfig:
-        """Get the active config, either selected or by index."""
-        if self.selected_config is not None:
-            return self.selected_config
-        return self.select_index_config(i)
-
-    def select_index_config(self, i: int) -> BaseConfig:
-        """Select config at index i and cache it."""
-        selected = select_config_index(self.config, i)
-        self.selected_index = i
-        self.selected_config = selected
-        return selected
-
-    def get_selected_config(self) -> BaseConfig:
-        """Get the currently selected config."""
-        if self.selected_config is None:
-            raise ValueError('No model index selected. Call select_index_config(i) first.')
-        return self.selected_config
-
-
-    def setup_loss_and_prior(self, i: int = 0):
-        """Set up loss function and prior for config index i."""
-        config = self._get_active_config(i)
-        
-        if config.Loss is None:
-            raise KeyError('Loss configuration not found')
-        
-        loss_type = config.get_loss_type(0)
-        lower, upper = self._get_parameter_bounds(config)
-
-        self.prior = BoxUniform(torch.tensor(lower).cuda(), torch.tensor(upper).cuda())
-        if loss_type == 'NPELoss':
-            self.loss = NPELoss(self.estimator)
-        elif loss_type == 'BNPELoss':
-            self.loss = BNPELoss(self.estimator, self.prior)
-        else:
-            raise NotImplementedError(f"Unsupported loss function: {loss_type}")
-        return self.loss, self.prior
-
     def network_to_device(self, device: str = 'cuda'):
         """Move estimator to device."""
         if self.estimator is not None:
@@ -99,44 +60,39 @@ class Base:
             else:
                 self.estimator.cpu()
 
-    def initialize_op_scheduler(self, i: int = 0):
-        """Set up optimizer and scheduler for config index i."""
+    def setup_optimizer_and_scheduler(self):
+        """Set up optimizer and scheduler from config."""
         if self.estimator is None:
             raise ValueError("Estimator must be set up before initializing optimizer and scheduler")
 
-        config = self._get_active_config(i)
-        
-        # Get optimizer config from Loss or training section
-        optimizer_cfg = config.get_optimizer_config()
-        if optimizer_cfg is None:
-            raise KeyError("Optimizer configuration not found")
+        optimizer_cfg = self.config.training.optimizer
+        scheduler_cfg = self.config.training.scheduler
 
-        # Use the optimizer method from OptimizerConfig
-        self.optimizer = optimizer_cfg.get_optimizer(self.estimator.parameters())
+        self.optimizer = get_optimizer_from_config(optimizer_cfg, self.estimator.parameters())
+        self.scheduler = get_scheduler_from_config(scheduler_cfg, self.optimizer) if scheduler_cfg else None
         
-        clip = config.get_clip_grad_norm()
-        step = GDStep(self.optimizer, clip=clip)
+        return self.optimizer, self.scheduler
+
+    def setup_loss(self):       
+        """Set up loss function and prior from config."""
+        loss_cfg = self.config.training.loss
+        if loss_cfg is None:
+            raise KeyError('Loss configuration not found')
         
-        # Get scheduler config from Loss or training section
-        scheduler_cfg = config.get_scheduler_config()
-        self.scheduler = scheduler_cfg.get_scheduler(self.optimizer) if scheduler_cfg else None
-        
-        return self.optimizer, step, self.scheduler
+        loss_type = loss_cfg.loss_type
+        lower, upper = self._get_parameter_bounds(self.config)
 
-    def log_metrics(self, metrics: dict, step: int = None):
-        """Log metrics."""
-        print(f"Step {step}: {metrics}")
+        self.prior = BoxUniform(torch.tensor(lower).cuda(), torch.tensor(upper).cuda())
+        if loss_type == 'NPELoss':
+            self.loss = NPELoss(self.estimator)
+        elif loss_type == 'BNPELoss':
+            self.loss = BNPELoss(self.estimator, self.prior)
+        else:
+            raise NotImplementedError(f"Unsupported loss function: {loss_type}")
+        return self.loss
 
-    def save_model(self, path: str):
-        """Save model state."""
-        if self.estimator is not None:
-            torch.save({
-                'estimator_state_dict': self.estimator.state_dict(),
-                'optimizer_state_dict': self.optimizer.state_dict() if self.optimizer else None,
-                'scheduler_state_dict': self.scheduler.state_dict() if self.scheduler else None,
-            }, path)
-
-    def load_estimator(self, path: str):
+    
+    def load_from_checkpoint(self, path: str):
         """Load model state."""
         checkpoint = torch.load(path)
         if self.estimator is not None:
@@ -146,8 +102,6 @@ class Base:
         if self.scheduler and 'scheduler_state_dict' in checkpoint and checkpoint['scheduler_state_dict']:
             self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 
-
-    
 
     def _step_scheduler(scheduler, metric=None):
         if scheduler is None:
@@ -163,8 +117,10 @@ class Base:
 
     def train(config: Union[dict, BaseConfig], datasets, simulator, observation, checkpoint_fn=None, checkpoint_interval=50):
         """
-        Run training loop with Pydantic config.
-        
+        - run the setup 
+        - execute a training loop until limit.
+
+
         Args:
             config: Configuration dict or BaseConfig instance
             datasets: Training/validation/test datasets
@@ -241,29 +197,16 @@ class Base:
         return estimator, runpath
 
 
-# Standalone functions for backward compatibility
-def setup_estimator(config: Union[dict, BaseConfig], i: int = 0):
-    """Set up estimator (backward compatible)."""
-    base = Base(config)
-    return base.setup_estimator(i)
+    def log_metrics(self, metrics: dict, step: int = None):
+        """Log metrics."""
+        print(f"Step {step}: {metrics}")
 
+    def save_model(self, path: str):
+        """Save model state."""
+        if self.estimator is not None:
+            torch.save({
+                'estimator_state_dict': self.estimator.state_dict(),
+                'optimizer_state_dict': self.optimizer.state_dict() if self.optimizer else None,
+                'scheduler_state_dict': self.scheduler.state_dict() if self.scheduler else None,
+            }, path)
 
-def setup_optimizer_and_scheduler(estimator, config: Union[dict, BaseConfig], i: int = 0):
-    """Set up optimizer and scheduler (backward compatible)."""
-    base = Base(config)
-    base.estimator = estimator
-    return base.initialize_op_scheduler(i)
-
-
-def setup_loss_and_prior(estimator, config: Union[dict, BaseConfig], i: int = 0):
-    """Set up loss and prior (backward compatible)."""
-    base = Base(config)
-    base.estimator = estimator
-    return base.setup_loss_and_prior(i)
-
-
-def setup_pipe(config: Union[dict, BaseConfig], loss):
-    """Set up pipe (backward compatible)."""
-    base = Base(config)
-    base.loss = loss
-    return base.setup_pipe()
