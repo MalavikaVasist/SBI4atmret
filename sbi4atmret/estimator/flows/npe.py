@@ -4,6 +4,7 @@ retruns the npe model initialized with the config files.
 '''
 
 from lampe.inference import NPE
+from sbi4atmret.estimator.base import EstimatorBase
 import torch.nn as nn
 from torch import Tensor
 
@@ -20,7 +21,7 @@ class NPEFlow(nn.Module):
             for inst_cfg in EmbeddingConfig.kwargs.instruments.values()
         )
 
-        self.flow = NPE(
+        self._flow = NPE(
             no_of_params,
             flow_input_dim,
             moments=((l + u) / 2, (u - l) / 2),
@@ -32,8 +33,9 @@ class NPEFlow(nn.Module):
         )
 
     def forward(self, theta: Tensor, x: Tensor) -> Tensor:
-        return self.flow(theta, x)
+        return self._flow(theta, x)
     
     def flow(self, x: Tensor):  # -> Distribution):
-        return self.flow(x)
+        return self._flow(x)
+
 

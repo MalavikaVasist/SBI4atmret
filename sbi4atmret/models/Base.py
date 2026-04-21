@@ -12,14 +12,12 @@ from ..torchutils.optimizer import get_optimizer_from_config
 from ..torchutils.scheduler import get_scheduler_from_config
 from ..config.configs import BaseConfig
 from ..config.selection import select_config_index
+from estimator.base import EstimatorBase
 
 
 class Base:
     """
     Base class for all models providing common setup and utility methods.
-
-    This class uses Pydantic models for type-safe configuration management
-    instead of plain dicts, providing automatic validation and attribute access.
     """
 
     def __init__(self, config: Union[dict, BaseConfig]):
@@ -31,8 +29,28 @@ class Base:
         self.optimizer = None
         self.scheduler = None
         self.loss = None
-        self.prior = None
-        self.pipe = None
+
+    def build(self):
+        estimator_config = self.config.estimator
+        embedding_config = estimator_config.embedding
+        flow_config = estimator_config.flow
+        
+        # --- Build embedding ---
+        embedding_type = estimator_config.embedding.name
+        embedding_cls = load_callable("sbi4atmret.estimator.embedding", embedding_type)
+        embedding = embedding_cls(embedding_config)
+
+
+        # --- Build flow ---
+        flow_type = estimator_config.flow.name
+        flow_cls = load_callable("sbi4atmret.estimator.flows", flow_type)
+        flow = flow_cls(flow_config)
+
+        # --- Combine ---
+        self.estimator = EstimatorBase(flow, embedding)
+
+        return self
+    
 
     def _get_active_config(self, i: int = 0) -> BaseConfig:
         """Get the active config, either selected or by index."""
@@ -52,8 +70,6 @@ class Base:
         if self.selected_config is None:
             raise ValueError('No model index selected. Call select_index_config(i) first.')
         return self.selected_config
-
-
 
 
     def setup_loss_and_prior(self, i: int = 0):
@@ -165,7 +181,7 @@ class Base:
             config = BaseConfig(**config)
         
         # Use attribute access on Pydantic model
-        model_name = str(config.ML_model_config.embedding.miri) if config.ML_model_config else "default"
+        model_name = str(config.estimator.embedding.output_dim) if config.estimator else "default"
         
         run = wandb.init(
             project=config.wandb['project'] if config.wandb else 'default',

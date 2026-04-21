@@ -204,7 +204,7 @@ Prior:
 
 model_title: RploggTbT1-9H2OCO2COCH4NH3PH3H2S15NH3HCNTiOVObgbwbm_unregPT
 
-ML_model_config:
+estimator:
   flow:
     type: NPEFlow
     kwargs:

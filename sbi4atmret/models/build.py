@@ -24,22 +24,12 @@ from MLmodel import estimator
 Here load the flows and embeddings and combine them to build the model.
 
 '''
-
-def build_embedding(embedding_config):
-    embedding_type = embedding_config.type 
-    embedding = load_callable("sbi4atmret.MLmodel.embedding", embedding_type)
-    return embedding(embedding_config)
-
-def build_flow(flow_config):
-    flow_type = flow_config.type 
-    flow = load_callable("sbi4atmret.MLmodel.flows", flow_type)
-    return flow
                 
 
-def build_model(ml_config):
+def build_model(estimator_config):
     estimator_config = EstimatorConfig(
-        embedding=ml_config.get("embedding"),  
-        flow=ml_config.get("flow")
+        embedding=estimator_config.get("embedding"),  
+        flow=estimator_config.get("flow")
     )
     
     embedding = build_embedding(estimator_config.embedding)

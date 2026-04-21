@@ -98,7 +98,7 @@ def select_config_index(full_config: Dict[str, Any], i: int) -> Dict[str, Any]:
         dict: A config dictionary where indexed values are reduced to the i'th element.
     """
     selected = dict(full_config)
-    selected['ML_model_configs'] = _select_model_config(full_config['ML_model_configs'], i)
+    selected['estimator'] = _select_model_config(full_config.get('estimator', {}), i)
     if full_config.get('Loss') is not None:
         selected['Loss'] = _select_loss_config(full_config['Loss'], i)
     if full_config.get('training') is not None:

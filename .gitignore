@@ -58,3 +58,7 @@ wandb
 */*.json 
 !*/*.txt 
 */*.npy
+
+
+observations/
+!observations/*.csv

@@ -5,6 +5,7 @@ import torch
 def get_cuda_info() -> dict[str, Any]:
     """
     Get information about the CUDA devices available in the system.
+    author : Timothy Gebhard
     """
 
     # No CUDA devices available
