@@ -1,18 +1,12 @@
 import torch
-from typing import Union, Optional
-from lampe.utils import GDStep
-from zuko.distributions import BoxUniform
-from lampe.inference import NPELoss
+from typing import Union
 
-
-from ..Train.losses import BNPELoss
-from .build import build_estimator as build_model_estimator
-from ..utils.load_utils import load_callable
-from ..torchutils.optimizer import get_optimizer_from_config
-from ..torchutils.scheduler import get_scheduler_from_config
 from ..config.configs import BaseConfig
-from ..config.selection import select_config_index
 from estimator.base import EstimatorBase
+from torchutils.general import _resolve_device
+from pathlib import Path
+import wandb
+from tqdm import tqdm
 
 
 class Base:
@@ -23,73 +17,44 @@ class Base:
     def __init__(self, config: Union[dict, BaseConfig]):
         """Initialize with config dict or BaseConfig instance."""
         self.config = config if isinstance(config, BaseConfig) else BaseConfig(**config)
-        self.selected_index: Optional[int] = None
-        self.selected_config: Optional[BaseConfig] = None
+        # self.selected_index: Optional[int] = None
+        # self.selected_config: Optional[BaseConfig] = None
+
+        self.device = _resolve_device()
         self.estimator = None
         self.optimizer = None
         self.scheduler = None
         self.loss = None
+        self.prior = None
 
-    def setup_estimator(self):
-        estimator_config = self.config.estimator
-        embedding_config = estimator_config.embedding
-        flow_config = estimator_config.flow
-        
-        # --- Build embedding ---
-        embedding_type = estimator_config.embedding.name
-        embedding_cls = load_callable("sbi4atmret.estimator.embedding", embedding_type)
-        embedding = embedding_cls(embedding_config)
+    
+    def build(self):
+        # --- Build components ---
+        embedding = self.config.build_embedding()
+        flow = self.config.build_flow()
 
-
-        # --- Build flow ---
-        flow_type = estimator_config.flow.name
-        flow_cls = load_callable("sbi4atmret.estimator.flows", flow_type)
-        flow = flow_cls(flow_config)
-
-        # --- Combine ---
+        # --- Compose estimator ---
         self.estimator = EstimatorBase(flow, embedding)
+        self.estimator = self.to_device(self.estimator)
+
+        # --- Compose prior ---
+        self.prior = self.config.build_prior()
+        self.prior = self.to_device(self.prior)
+
+        # --- Training components ---
+        self.loss = self.config.build_loss(self.estimator, self.prior)
+
+        self.optimizer = self.config.build_optimizer(self.estimator.parameters())
+        self.scheduler = self.config.build_scheduler(self.optimizer)
 
         return self
 
     
-    def network_to_device(self, device: str = 'cuda'):
-        """Move estimator to device."""
-        if self.estimator is not None:
-            if device == 'cuda':
-                self.estimator.cuda()
-            else:
-                self.estimator.cpu()
+    def to_device(self, module):
+        if module is None:
+            return None
 
-    def setup_optimizer_and_scheduler(self):
-        """Set up optimizer and scheduler from config."""
-        if self.estimator is None:
-            raise ValueError("Estimator must be set up before initializing optimizer and scheduler")
-
-        optimizer_cfg = self.config.training.optimizer
-        scheduler_cfg = self.config.training.scheduler
-
-        self.optimizer = get_optimizer_from_config(optimizer_cfg, self.estimator.parameters())
-        self.scheduler = get_scheduler_from_config(scheduler_cfg, self.optimizer) if scheduler_cfg else None
-        
-        return self.optimizer, self.scheduler
-
-    def setup_loss(self):       
-        """Set up loss function and prior from config."""
-        loss_cfg = self.config.training.loss
-        if loss_cfg is None:
-            raise KeyError('Loss configuration not found')
-        
-        loss_type = loss_cfg.loss_type
-        lower, upper = self._get_parameter_bounds(self.config)
-
-        self.prior = BoxUniform(torch.tensor(lower).cuda(), torch.tensor(upper).cuda())
-        if loss_type == 'NPELoss':
-            self.loss = NPELoss(self.estimator)
-        elif loss_type == 'BNPELoss':
-            self.loss = BNPELoss(self.estimator, self.prior)
-        else:
-            raise NotImplementedError(f"Unsupported loss function: {loss_type}")
-        return self.loss
+        return module.to(self.device)
 
     
     def load_from_checkpoint(self, path: str):
@@ -103,7 +68,7 @@ class Base:
             self.scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
 
 
-    def _step_scheduler(scheduler, metric=None):
+    def step_scheduler(scheduler, metric=None):
         if scheduler is None:
             return
         if isinstance(scheduler, sched.ReduceLROnPlateau):
@@ -115,86 +80,125 @@ class Base:
                 scheduler.step(metric)
 
 
-    def train(config: Union[dict, BaseConfig], datasets, simulator, observation, checkpoint_fn=None, checkpoint_interval=50):
+    def train(
+        self,
+        datasets,
+        simulator,
+        observation,
+        checkpoint_fn=None,
+    ):
         """
-        - run the setup 
-        - execute a training loop until limit.
-
-
-        Args:
-            config: Configuration dict or BaseConfig instance
-            datasets: Training/validation/test datasets
-            simulator: Simulator for forward modeling
-            observation: Observation data
-            checkpoint_fn: Optional checkpoint saving function
-            checkpoint_interval: Interval for checkpointing
-            
-        Returns:
-            Tuple of (estimator, runpath)
+        Train the model using already-built components.
         """
-        # Convert to BaseConfig if dict
-        if isinstance(config, dict):
-            config = BaseConfig(**config)
-        
-        # Use attribute access on Pydantic model
-        model_name = str(config.estimator.embedding.output_dim) if config.estimator else "default"
-        
+
+        # --- Build if not already done ---
+        if self.estimator is None:
+            self.build()
+
+        dataset = load_dataset_batchwise()
+
+        # --- WandB ---
+        wandb_cfg = self.config.wandb_config
         run = wandb.init(
-            project=config.wandb['project'] if config.wandb else 'default',
-            config={},
-            name=f"{model_name}"
+            project=wandb_cfg["project"],
+            name=wandb_cfg.get("title", "run"),
+            config=self.config.model_dump()
         )
 
-        estimator = setup_estimator(config, 0)
-        optimizer, step, scheduler = setup_optimizer_and_scheduler(estimator, config, 0)
-        loss, prior = setup_loss_and_prior(estimator, config, 0)
-        pipe = setup_pipe(config, loss)
-
-        savepath = Path(config.paths['savepath'][0]) if config.paths else Path('./runs')
-        runpath = savepath / run.name
+        # --- Paths ---
+        self.savepath = Path(self.config.dataset_config.savepath)
+        runpath = self.savepath / run.name
         runpath.mkdir(parents=True, exist_ok=True)
 
-        # Use attribute access for training config
-        start_epoch = config.training.epoch_fin if config.training else 0
-        end_epoch = config.training.epochs if config.training else 100
-        
-        for epoch in tqdm(range(start_epoch, end_epoch), unit='epoch'):
-            # Build dataset lists (compatible with existing data loading)
-            trainsets = [datasets[atm_type][instrument]['train'] 
-                        for atm_type in config.wandb['simulator']['type'] if config.wandb
-                        for instrument in config.wandb['instruments'] if config.wandb]
-            losses_train, duration = train_epoch(estimator, step, trainsets, simulator, pipe, config.model_dump())
+        # --- Epochs ---
+        start_epoch = self.config.training_config.epoch_fin
+        end_epoch = self.config.training_config.epochs
 
-            validsets = [datasets[atm_type][instrument]['valid']
-                        for atm_type in config.wandb['simulator']['type'] if config.wandb
-                        for instrument in config.wandb['instruments'] if config.wandb]
-            losses_val = validate_epoch(estimator, validsets, simulator, pipe, step, config.model_dump())
+        # --- Loop ---
+        for epoch in tqdm(range(start_epoch, end_epoch), unit="epoch"):
 
-            log_to_wandb(run, optimizer.param_groups[0]['lr'], 
-                        torch.nanmean(losses_train), torch.nanmean(losses_val),
-                        torch.isnan(losses_train).mean(), torch.isnan(losses_val).mean(),
-                        len(losses_train) / duration, len(losses_train), len(losses_val))
 
-            _step_scheduler(scheduler, torch.nanmean(losses_val))
 
-            if checkpoint_fn is not None and epoch > 100 and epoch % checkpoint_interval == 0:
+            trainsets = [
+                datasets[cond][inst]["train"]
+                for cond in self.config.dataset_config.dataset_path.keys()
+                for inst in self.config.dataset_config.dataset_path[cond].keys()
+            ]
+
+            validsets = [
+                datasets[cond][inst]["valid"]
+                for cond in config.dataset_config.dataset_path.keys()
+                for inst in config.dataset_config.dataset_path[cond].keys()
+            ]
+
+            losses_train, duration = train_epoch(
+                estimator,
+                optimizer,
+                trainsets,
+                simulator,
+                loss_fn,
+                config.model_dump()
+            )
+
+            losses_val = validate_epoch(
+                estimator,
+                validsets,
+                simulator,
+                loss_fn,
+                optimizer,
+                config.model_dump()
+            )
+
+            # --- Logging ---
+            wandb.log({
+                "lr": optimizer.param_groups[0]["lr"],
+                "train_loss": torch.nanmean(losses_train),
+                "val_loss": torch.nanmean(losses_val),
+            })
+
+            # --- Scheduler ---
+            if scheduler is not None:
+                try:
+                    scheduler.step(torch.nanmean(losses_val))
+                except TypeError:
+                    scheduler.step()
+
+            # --- Checkpoint ---
+            interval = config.training_config.checkpoint_interval or 100
+            if checkpoint_fn and epoch > 100 and epoch % interval == 0:
                 checkpoint_fn(runpath, estimator, optimizer, epoch)
 
-            # Use attribute access for stop criterion
-            if config.training and config.training.stop_criterion == 'early' and scheduler is not None and optimizer.param_groups[0]['lr'] <= scheduler.min_lrs[0]:
+            # --- Early stopping ---
+            if (
+                config.training_config.stop_criterion == "early"
+                and scheduler is not None
+                and optimizer.param_groups[0]["lr"] <= getattr(scheduler, "min_lrs", [0])[0]
+            ):
                 break
 
-        # Post-training plotting
-        testsets = [datasets[atm_type][instrument]['test']
-                for atm_type in config.wandb['simulator']['type'] if config.wandb
-                for instrument in config.wandb['instruments'] if config.wandb]
-        plot_dict = plot_results(runpath, estimator, observation, testsets, pipe, simulator, config.model_dump())
+        # --- Test ---
+        testsets = [
+            datasets[cond][inst]["test"]
+            for cond in self.config.dataset_config.dataset_path.keys()
+            for inst in self.config.dataset_config.dataset_path[cond].keys()
+        ]
+
+        plot_dict = self.plot_results(
+            runpath,
+            self.estimator,
+            observation,
+            testsets,
+            self.loss,
+            simulator,
+            self.config.model_dump()
+        )
 
         for key, fig in plot_dict.items():
             run.log({key: wandb.Image(fig)})
 
         run.finish()
-        return estimator, runpath
+
+        return self.estimator, runpath
 
 
     def log_metrics(self, metrics: dict, step: int = None):

@@ -1,6 +1,35 @@
+from config import BaseConfig
+
+class BasePipe:
+    def __init__(self, config):
+        self.config = config
+
+    def mask(self, x, instrument):
+        # implement masking logic per instrument
+        return x
+
+    def transform_uniform(x, a, b, c, d):
+        # Check if x is within the original range
+        if a <= x <= b:
+            # Apply the transformation formula
+            y = c + ((x - a) * (d - c)) / (b - a)
+            return y
+        else:
+            raise ValueError(f"x must be in the range [{a}, {b}]")
+        
+        return 
+
+    def __call__(self, batch):
+        return self.transform(*batch)
+
 class Dataset:
     def __init__(self, config: BaseConfig):
         self.config = config
+
+
+
+    def len_dataset(self):
+
 
     def load_dataset_batchwise(
         self,
@@ -71,3 +100,7 @@ class Dataset:
             logger.error(f"Failed to load dataset: {e}")
             raise
 
+
+    def apply_pipeline():
+
+    

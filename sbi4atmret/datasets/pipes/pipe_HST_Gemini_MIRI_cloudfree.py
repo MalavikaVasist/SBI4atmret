@@ -1,4 +1,35 @@
-from code2explore.observations import load_observations
+
+
+class Transforms:
+    def __init__(self, x):
+        self.x = x
+    
+    def transform_uniform(self, a, b, c, d):
+        # Check if x is within the original range
+        if a <= self.x <= b:
+            # Apply the transformation formula
+            y = c + ((self.x - a) * (d - c)) / (b - a)
+            return y
+        else:
+            raise ValueError(f"x must be in the range [{a}, {b}]")
+
+
+class BasePipe(ABC):
+    def __init__(self, theta, x, return_loss: bool = True):
+        self.x = x
+        self.theta = theta
+
+
+    def pipe():
+
+
+    
+
+
+
+
+
+
 
 def masking(wlen_geminisim) :
     obs_wlen_gemini = torch.from_numpy(obs_wlen_gemini)
@@ -7,14 +38,7 @@ def masking(wlen_geminisim) :
         mask = mask + torch.isin(torch.from_numpy(wlen_geminisim), obs_wlen_gemini[ind].item())
     return mask
 
-def transform_uniform(x, a, b, c, d):
-    # Check if x is within the original range
-    if a <= x <= b:
-        # Apply the transformation formula
-        y = c + ((x - a) * (d - c)) / (b - a)
-        return y
-    else:
-        raise ValueError(f"x must be in the range [{a}, {b}]")
+
 
 def noisybfactor(x: Tensor, b: Tensor, sigma: Tensor, scale) -> Tensor:
         b = torch.unsqueeze(b, 1)
@@ -63,62 +87,14 @@ from abc import ABC, abstractmethod
 import torch
 from torch import Tensor
 
-class BasePipe(ABC):
-    def __init__(self, return_loss: bool = True):
-        self.return_loss = return_loss
 
-    @abstractmethod
-    def make_dataset(self, sim_models, simulator) -> tuple[Tensor, Tensor]:
-        """
-        Subclasses implement this: compute and return (theta, x)
-        """
-        pass
 
-    def __call__(self, sim_models, simulator) -> Tensor | tuple[Tensor, Tensor]:
-        theta, x = self.make_dataset(sim_models, simulator)
-        if self.return_loss:
-            return self.loss(theta, x)
+
+
+class DataPipeline:
+    def __init__(self, noise_model, mask, sigmas):
+        ...
+
+    def __call__(self, batch):
+        theta, x = ...
         return theta, x
-
-    # @staticmethod
-    # def loss(theta: Tensor, x: Tensor) -> Tensor:
-    #     """
-    #     Default loss implementation (can be overridden in subclasses).
-    #     """
-    #     return (theta - x).pow(2).mean()  # example placeholder
-
-class Pipe_HST_Gemini_MIRI_cloudfree(BasePipe):
-    def make_dataset(self, sim_models, simulator):
-        theta, x = sim_models['cloudfree']['miri']
-        thetag, xg = sim_models['cloudfree']['gemini']
-        thetah, xh = sim_models['cloudfree']['hst']
-
-        # apply priors
-        thetah[:, -1] = torch.hstack([
-            transform_uniform(thetah[i, -1], -17, -11, -15, -7) for i in range(len(thetah))
-        ])
-        thetag[:, -1] = torch.hstack([
-            transform_uniform(thetag[i, -1], -17, -11, -15, -7) for i in range(len(thetag))
-        ])
-
-        thetahf = torch.flip(thetah, dims=(0,))
-        mask = masking(simulator.wavelength)
-        scale = simulator.scale
-
-        x, _ = noisybfactor(x[:, 1:1299], theta[:, -1], sigmaM, scale)
-        xg, _ = noisybfactor(xg[:, mask], thetag[:, -1], sigmaG, scale)
-        xh, _ = noisybfactor(xh, thetah[:, -1], sigmaH, scale)
-
-        xinst = torch.hstack((xh, xg))[:, index_argsort]
-        x = torch.hstack((xinst, x))
-
-        '''
-        the x must be a dictionary of the form {'hst': xh, 'gemini': xg, 'miri': x} for the embedding to work. 
-        '''
-
-        thetag = torch.hstack((thetag[:, :-3], thetag[:, -1:]))
-        bCh = torch.unsqueeze(thetahf[:, -1], 1)
-        theta = torch.hstack((thetag, bCh))
-
-        return theta.cuda(), x.cuda()
-

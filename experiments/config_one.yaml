@@ -27,15 +27,19 @@ dataset:
       hst:
         path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudfree/
   savepath: JWST/runs/WISEJ1738/model_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI+HST+Gemini/cloudfree/
+  pipe:
+    type: pipes.pipe_HST_Gemini_MIRI_cloudfree.pipe
+    kwargs: {}
 
 simulator:
+  type: cloudfree
   callable:
     emission_model:
-      module: utils.emission_model_general
-      function: emission_model_diseq
+      type: utils.emission_model_general.emission_model_diseq
+      kwargs: {}
     PT_profile:
-      module: utils.PT_profiles
-      function: pt_profile
+      type: utils.PT_profiles.pt_profile
+      kwargs: {}
   line_species: 
     - CH4_hargreaves
     - H2O_Exomol
@@ -95,114 +99,116 @@ simulator:
   contribution: true
   PT_plot_mode: false
   conv: true
-  type: cloudfree
 
-Prior:
-  - name: "$R_{P}$"
-    lower: 0.5
-    upper: 3
+prior:
+  distribution:
+    type: priors.BoxUniform
+    kwargs: {}
 
-  - name: "$Mass$"
-    lower: 1
-    upper: 50
+  parameters:   
+    - name: "$R_{P}$"
+      lower: 0.5
+      upper: 3
 
-  - name: "$T_{bottom}$"
-    lower: 100
-    upper: 9000
+    - name: "$Mass$"
+      lower: 1
+      upper: 50
 
-  - name: "$tnode1$"
-    lower: 0.2
-    upper: 1.0
+    - name: "$T_{bottom}$"
+      lower: 100
+      upper: 9000
 
-  - name: "$tnode2$"
-    lower: 0.2
-    upper: 1.0
+    - name: "$tnode1$"
+      lower: 0.2
+      upper: 1.0
 
-  - name: "$tnode3$"
-    lower: 0.2
-    upper: 1.0
+    - name: "$tnode2$"
+      lower: 0.2
+      upper: 1.0
 
-  - name: "$tnode4$"
-    lower: 0.2
-    upper: 1.0
+    - name: "$tnode3$"
+      lower: 0.2
+      upper: 1.0
 
-  - name: "$tnode5$"
-    lower: 0.2
-    upper: 1.0
+    - name: "$tnode4$"
+      lower: 0.2
+      upper: 1.0
 
-  - name: "$tnode6$"
-    lower: 0.2
-    upper: 1.0
+    - name: "$tnode5$"
+      lower: 0.2
+      upper: 1.0
 
-  - name: "$tnode7$"
-    lower: 0.2
-    upper: 1.0
+    - name: "$tnode6$"
+      lower: 0.2
+      upper: 1.0
 
-  - name: "$tnode8$"
-    lower: 0.2
-    upper: 1.0
+    - name: "$tnode7$"
+      lower: 0.2
+      upper: 1.0
 
-  - name: "$tnode9$"
-    lower: 0.2
-    upper: 1.0
+    - name: "$tnode8$"
+      lower: 0.2
+      upper: 1.0
 
-  - name: "$H_2O$"
-    lower: -10
-    upper: 0
+    - name: "$tnode9$"
+      lower: 0.2
+      upper: 1.0
 
-  - name: "$CO_2$"
-    lower: -10
-    upper: 0
+    - name: "$H_2O$"
+      lower: -10
+      upper: 0
 
-  - name: "$CO$"
-    lower: -10
-    upper: 0
+    - name: "$CO_2$"
+      lower: -10
+      upper: 0
 
-  - name: "$CH_4$"
-    lower: -10
-    upper: 0
+    - name: "$CO$"
+      lower: -10
+      upper: 0
 
-  - name: "$NH_3$"
-    lower: -10
-    upper: 0
+    - name: "$CH_4$"
+      lower: -10
+      upper: 0
 
-  - name: "$PH_3$"
-    lower: -10
-    upper: 0
+    - name: "$NH_3$"
+      lower: -10
+      upper: 0
 
-  - name: "$H_2S$"
-    lower: -10
-    upper: 0
+    - name: "$PH_3$"
+      lower: -10
+      upper: 0
 
-  - name: "$^{15}NH_3$"
-    lower: -10
-    upper: 0
+    - name: "$H_2S$"
+      lower: -10
+      upper: 0
 
-  - name: "$HCN$"
-    lower: -10
-    upper: 0
+    - name: "$^{15}NH_3$"
+      lower: -10
+      upper: 0
 
-  - name: "$TiO$"
-    lower: -10
-    upper: 0
+    - name: "$HCN$"
+      lower: -10
+      upper: 0
 
-  - name: "$VO$"
-    lower: -10
-    upper: 0
+    - name: "$TiO$"
+      lower: -10
+      upper: 0
 
-  - name: "$b_{g}$"
-    lower: -15
-    upper: -7
+    - name: "$VO$"
+      lower: -10
+      upper: 0
 
-  - name: "$b_{w}$"
-    lower: -15
-    upper: -7
+    - name: "$b_{g}$"
+      lower: -15
+      upper: -7
 
-  - name: "$b_{m}$"
-    lower: -15
-    upper: -7
+    - name: "$b_{w}$"
+      lower: -15
+      upper: -7
 
-model_title: RploggTbT1-9H2OCO2COCH4NH3PH3H2S15NH3HCNTiOVObgbwbm_unregPT
+    - name: "$b_{m}$"
+      lower: -15
+      upper: -7
 
 estimator:
   flow:
@@ -227,12 +233,6 @@ estimator:
           input_dim: 434
           output_dim: 16
 
-Loss:
-  type: BNPELoss
-
-pipe:
-  module: pipes.pipe_HST_Gemini_MIRI_cloudfree
-  function: pipe
 
 training:
   optimizer:
@@ -249,6 +249,10 @@ training:
       patience: 32
       threshold: 0.01
 
+  loss: 
+    type: BNPELoss
+    kwargs: {}
+
   epochs: 800
   batch_size: 1024
   epoch_fin: 800
@@ -257,7 +261,8 @@ training:
   clip_grad_norm: 1.0
   stop_criterion: late_lr
   name: 1
-  map_location: cpu
+  device: cpu
+
 
 wandb:
   project: WISE1738
@@ -266,3 +271,4 @@ wandb:
   gpus: 1
   ram: 16GB
   time: 10-00:00:00
+  title: "WISEJ1738 - MIRI+HST+Gemini - cloudfree - 15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT"

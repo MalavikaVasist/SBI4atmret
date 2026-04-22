@@ -23,6 +23,39 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 load daata and model and setup the loss, optimizer and scheduler from scratch or checkpoint. 
 '''
 
+def load_model(config: BaseConfig) -> Base:
+    """
+    Load and initialize the estimator model from configuration.
+    
+    Args:
+        config: BaseConfig instance with model configuration
+        
+    Returns:
+        Base instance with initialized estimator
+        
+    Raises:
+        ValueError: If config is invalid or missing required fields
+    """
+    if not isinstance(config, BaseConfig):
+        raise TypeError(f"Expected BaseConfig, got {type(config)}")
+    
+    if config.estimator is None:
+        raise ValueError("Estimator configuration not found in config")
+    
+    logger.info("Loading model from configuration...")
+    
+    # Create Base instance and setup estimator
+    model = Base(config).build()
+    
+    if model.estimator is None:
+        raise RuntimeError("Failed to build estimator model")
+    
+    logger.info(f"Model loaded successfully: {type(model.estimator).__name__}")
+    return model
+
+
+
+
 def setup_training(
     config: Union[dict, BaseConfig],
     checkpoint_path: Optional[Path] = None,

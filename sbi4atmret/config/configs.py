@@ -2,10 +2,74 @@ from typing import Any, Dict, List, Optional, Union
 from importlib import import_module
 
 from sbi4atmret.utils import config
+from sbi4atmret.utils.load_utils import load_callable
 import torch
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 import torch.optim as optim
 
+
+class InstrumentConfig(BaseModel):
+    """Configuration for dataset paths for a specific instrument."""
+    wavelength: list[float]
+    path: str
+
+class InstrumentPath(BaseModel):
+    """Configuration for dataset paths for a specific instrument."""
+    path: str
+
+class ConditionPaths(BaseModel):
+    """Configuration for dataset paths organized by condition and instrument."""
+
+    __root__: Dict[str, InstrumentPath]  # miri/gemini/hst
+
+class ComponentConfig(BaseModel):
+    """Configuration for a generic component with type and kwargs."""
+    type: str
+    kwargs: Dict[str, Any] = {}
+
+
+class ObservationConfig(BaseModel):
+    """Configuration for observation settings."""
+    source: str
+    instruments: dict[str, InstrumentConfig]
+    simulation: bool
+
+class DatasetConfig(BaseModel):
+    """Configuration for dataset loading."""
+    D: float
+    shuffle: bool
+    dataset_path: dict[str, dict[str, InstrumentPath]]  # condition → instrument → path
+    savepath: str
+    pipe: ComponentConfig
+
+class SimulatorConfig(BaseModel):
+    """Configuration for the simulator, including callable components and species information."""
+    type: str
+    callable: dict[str, ComponentConfig]  # emission_model, PT_profile, line_species
+    line_species: List[str]
+    cloud_species: Optional[List[str]] = None
+    rayleigh_species: List[str] 
+    continuum_species: List[str]
+    names : List[str]
+    pressure_scaling: float
+    pressure_simple: float
+    pressure_width: float
+    scale: float
+    N_nodes: int
+    N_data_sets: int
+    D_pl: float
+    AMR: bool
+    do_scat_emis: bool
+    contribution: bool
+    PT_plot_mode: bool
+    conv: bool
+
+    def build_simulator(self):
+        """Dynamically import and instantiate the simulator based on the configuration."""
+        sim_module = import_module(f"sbi4atmret.simulators.{self.type}")
+        sim_class = getattr(sim_module, self.type.capitalize() + "Simulator")
+        sim_kwargs = {key: comp.get_component() for key, comp in self.callable.items()}
+        return sim_class(**sim_kwargs, **self.dict(exclude={'callable'}))
 
 class ParameterConfig(BaseModel):
     """Configuration for a single parameter with bounds."""
@@ -14,325 +78,206 @@ class ParameterConfig(BaseModel):
     upper: float
     default: Optional[float] = None
 
-
 class PriorConfig(BaseModel):
     """Configuration for prior distribution."""
-    Prior: List[ParameterConfig] = Field(alias="Prior")
-
-    def get_parameter_bounds(self) -> (List[float], List[float]):
-        """Extract lower and upper bounds from Prior config."""
-        if not self.Prior:
-            raise KeyError('No Prior section found in config')
-        lower = [p.lower for p in self.Prior]
-        upper = [p.upper for p in self.Prior]
-        return lower, upper
-
-    def get_no_of_params(self) -> int:
-        """Get the number of parameters from the Prior config."""
-        if not self.Prior:
-            raise KeyError('No Prior section found in config')
-        return len(self.Prior)
-
-
-class InstrumentEmbeddingConfig(BaseModel):
-    hidden_features: List[int]
-    output_dim: List[int]
-    input_dim: List[int]
-
-
-class EmbeddingKwargs(BaseModel):
-    bound: float
-    instruments: Dict[str, InstrumentEmbeddingConfig]
-
-
-class EmbeddingConfig(BaseModel):
-    type: str
-    kwargs: EmbeddingKwargs
-
-class FlowKwargs(BaseModel):
-    hidden_features_no: int
-    hidden_features: List[int]
-    transforms: int
-    signal: int
-
-class FlowConfig(BaseModel):
-    """Configuration for a flow-based estimator."""
-    model_config = ConfigDict(extra='allow')
-
-    type: str
-    kwargs: Optional[Dict[str, Any]] = None
+    distribution: ComponentConfig
+    parameters: List[ParameterConfig] 
 
 
 class EstimatorConfig(BaseModel):
-    """Configuration for estimator settings."""
-    model_config = ConfigDict(extra='allow')
-
-    embedding: Optional[EmbeddingConfig]
-    flow: Optional[FlowConfig] 
-
-
-class OptimizerConfig(BaseModel):
-    """Configuration for optimizer settings."""
-    model_config = ConfigDict(extra='allow')
-
-    type: str
-    lr: Optional[Union[List[float], float]] = None
-    init_lr: Optional[Union[List[float], float]] = None
-    weight_decay: Optional[Union[List[float], float]] = None
-    kwargs: Optional[Dict[str, Any]] = None
-
-    @field_validator('type')
-    @classmethod
-    def validate_optimizer_type(cls, v):
-        try:
-            getattr(import_module("torch.optim"), v)
-        except AttributeError:
-            raise ValueError(f"Invalid optimizer type '{v}'. Must be a valid torch.optim optimizer class.")
-        return v
-
-    @model_validator(mode='after')
-    def validate_lr_fields(self):
-        if self.lr is None and self.init_lr is None:
-            raise ValueError("Either 'lr' or 'init_lr' must be provided")
-        return self
-
-    def get_optimizer(self, model_parameters):
-        """
-        Create and return a PyTorch optimizer instance based on the configuration.
-
-        Args:
-            model_parameters: Model parameters to optimize.
-
-        Returns:
-            Initialized PyTorch optimizer instance.
-        """
-        opt_class = getattr(torch.optim, self.type)
-        kwargs = self.kwargs.copy() if self.kwargs else {}
-
-        # Select lr from lr or init_lr, handling lists
-        lr_value = self.lr if self.lr is not None else self.init_lr
-        if lr_value is not None:
-            kwargs['lr'] = lr_value
-
-        # Handle weight_decay if provided
-        if self.weight_decay is not None:
-            kwargs['weight_decay'] = self.weight_decay
-
-        return opt_class(model_parameters, **kwargs)
-
-
-class SchedulerConfig(BaseModel):
-    """Configuration for scheduler settings."""
-    model_config = ConfigDict(extra='allow')
-
-    type: Optional[str] = None
-    kwargs: Optional[Dict[str, Any]] = None
-
-    @field_validator('type')
-    @classmethod
-    def validate_scheduler_type(cls, v):
-        if v is None:
-            return v
-        try:
-            getattr(import_module("torch.optim.lr_scheduler"), v)
-        except AttributeError:
-            raise ValueError(f"Invalid scheduler type '{v}'. Must be a valid torch.optim.lr_scheduler class.")
-        return v
-
-    def get_scheduler(self, optimizer):
-        """
-        Create and return a PyTorch scheduler instance based on the configuration.
-
-        Args:
-            optimizer: PyTorch optimizer instance.
-
-        Returns:
-            Initialized PyTorch scheduler instance or None if no scheduler configured.
-        """
-        if self.type is None:
-            return None
-
-        scheduler_class = getattr(torch.optim.lr_scheduler, self.type)
-        kwargs = self.kwargs.copy() if self.kwargs else {}
-
-        return scheduler_class(optimizer, **kwargs)
-
-
-class LossConfig(BaseModel):
-    """Configuration for loss and optimizer/scheduler settings."""
-    model_config = ConfigDict(extra='allow')
-
-    loss_type: Union[List[str], str]
-    optimizer: Optional[OptimizerConfig] = None
-    scheduler: Optional[SchedulerConfig] = None
+    flow: ComponentConfig
+    embedding: ComponentConfig
 
 
 class TrainingConfig(BaseModel):
-    """Configuration for training loops and learning schedule."""
-    model_config = ConfigDict(extra='allow')
-
-    epochs: Union[List[int], int]
-    epoch_fin: Union[List[int], int]
-    batch_size: Optional[Union[List[int], int]] = None
-    gradient_steps_train: Optional[int] = None
-    gradient_steps_valid: Optional[int] = None
-    clip_grad_norm: float = 1.0
+    optimizer: ComponentConfig
+    scheduler: ComponentConfig | None = None
+    loss: ComponentConfig
+    epochs: int
+    batch_size: int
+    epoch_fin: int
+    gradient_steps_train: int
+    gradient_steps_valid: int
+    clip_grad_norm: float
     stop_criterion: Optional[str] = None
-    optimizer: Optional[OptimizerConfig] = None
-    scheduler: Optional[SchedulerConfig] = None
     checkpoint_interval: Optional[int] = None
+    name: str
+    device: str
 
 
-class PipeConfig(BaseModel):
-    """Configuration for training pipeline."""
-    module: str
-    function: str
-
-class InstrumentConfig(BaseModel):
-    wavelength: list[float]
-    path: str
-
-class ObservationConfig(BaseModel):
-    source: str
-    simulation: bool
-    instruments: dict[str, InstrumentConfig]
-
-class DatasetConfig(BaseModel):
-    D: float
-    dataset_path: dict[str, dict[str, str]]  # condition → instrument → path
-    savepath: list[str]
-
+class WandbConfig(BaseModel):
+    project: str
+    array: int
+    cpus: int
+    gpus: int
+    ram: str
+    time: str
+    title: str
 
 class BaseConfig(BaseModel):
     """Top-level configuration for training."""
     model_config = ConfigDict(extra='allow')
     
-    estimator: Optional[EstimatorConfig] = None
-    Loss: Optional[LossConfig] = None
-    training: Optional[TrainingConfig] = None
-    pipe: Optional[PipeConfig] = None
-    Prior: Optional[List[ParameterConfig]] = None
-    wandb: Optional[Dict[str, Any]] = None
-    paths: Optional[Dict[str, Any]] = None
+    observation_config: ObservationConfig
+    dataset_config: DatasetConfig
+    simulator_config: Dict[str, Any]
+    prior_config: PriorConfig
+    estimator_config: EstimatorConfig
+    training_config: TrainingConfig
+    wandb_config: WandbConfig
+    
 
-    @model_validator(mode='after')
-    def validate_parameters(self):
-        """Ensure parameters are provided in the expected location."""
-        if not self.Prior:
-            raise ValueError("Parameters must be provided in Prior")
-        return self
+    def get_parameter_bounds(self) -> Union[List[float], List[float]]:
+        """Extract lower and upper bounds from Prior config."""
+        if self.prior_config is None:
+            raise KeyError('No Prior section found in config')
+        lower = [p.lower for p in self.prior_config.parameters]
+        upper = [p.upper for p in self.prior_config.parameters]
+        return lower, upper
 
-    def get_parameters(self) -> List[ParameterConfig]:
-        """Get parameters from the first available location."""
-        return self.Prior
+    def get_parameter_names(self) -> List[str]:
+        if self.prior_config is None:
+            raise KeyError('No Prior section found in config')
+        names = [p.name for p in self.prior_config.parameters]
+        return names
 
-    def get_optimizer_config(self) -> Optional[OptimizerConfig]:
-        """Get optimizer config from training or Loss section."""
-        return self.training.optimizer if self.training and self.training.optimizer else (
-            self.Loss.optimizer if self.Loss and self.Loss.optimizer else None
+    def get_no_of_params(self) -> int:
+        """Get the number of parameters from the Prior config."""
+        if not self.prior_config:
+            raise KeyError('No Prior section found in config')
+        return len(self.prior_config.parameters)
+    
+    # ---------- GENERIC BUILDER ----------
+    def _build_component(self, cfg: ComponentConfig, **extra_kwargs):
+        cls = load_callable(cfg.type)
+        return cls(**cfg.kwargs, **extra_kwargs)
+
+    # ---------- SPECIFIC BUILDERS ----------
+    def build_embedding(self):
+        return self._build_component(self.estimator_config.embedding)
+
+    def build_flow(self):
+        return self._build_component(
+            self.estimator_config.flow,
+            FlowConfig=self.estimator_config.flow,
+            PriorConfig=self,
+            EmbeddingConfig=self.estimator_config.embedding,
         )
 
-    def get_scheduler_config(self) -> Optional[SchedulerConfig]:
-        """Get scheduler config from training or Loss section."""
-        return self.training.scheduler if self.training and self.training.scheduler else (
-            self.Loss.scheduler if self.Loss and self.Loss.scheduler else None
+    def build_loss(self, estimator, prior=None):
+        return self._build_component(
+            self.training_config.loss,
+            estimator=estimator,
+            prior=prior
+        )
+    
+    def build_prior(self):
+        lower, upper = self.get_parameter_bounds()
+        return self._build_component(
+            self.prior_config.distribution,
+            lower=lower,
+            upper=upper
         )
 
-    def get_loss_type(self, index: int = 0) -> str:
-        """Get loss type, handling list indexing."""
-        if not self.Loss or not self.Loss.loss_type:
-            raise ValueError("Loss configuration not found")
-        loss_type = self.Loss.loss_type
-        return loss_type[index] if isinstance(loss_type, list) else loss_type
+    def build_optimizer(self, parameters):
+        return self._build_component(
+            self.training_config.optimizer,
+            params=parameters
+        )
 
-    def get_clip_grad_norm(self) -> float:
-        """Get gradient clipping value."""
-        return self.training.clip_grad_norm if self.training else 1.0
+    def build_scheduler(self, optimizer):
+        if self.training_config.scheduler is None:
+            return None
+        return self._build_component(
+            self.training_config.scheduler,
+            optimizer=optimizer
+        )
+    
 
-    def select_at_index(self, i: int) -> 'BaseConfig':
-        """
-        Create a new config with all list-valued fields reduced to their i-th element.
+  
+
+
+
+
+
+
+    # def select_at_index(self, i: int) -> 'BaseConfig':
+    #     """
+    #     Create a new config with all list-valued fields reduced to their i-th element.
         
-        Args:
-            i: Index to select from list-valued fields.
+    #     Args:
+    #         i: Index to select from list-valued fields.
             
-        Returns:
-            A new BaseConfig instance with scalar values.
-        """
-        # Helper function to select by index
-        def _select_value(value, index):
-            if isinstance(value, (list, tuple)):
-                return value[index]
-            return value
+    #     Returns:
+    #         A new BaseConfig instance with scalar values.
+    #     """
+    #     # Helper function to select by index
+    #     def _select_value(value, index):
+    #         if isinstance(value, (list, tuple)):
+    #             return value[index]
+    #         return value
         
-        # Select model config
-        model_config_dict = {}
-        if self.model_config:
-            mc = self.model_config
-            model_config_dict = {
-                'embedding': {
-                    'miri': _select_value(mc.embedding.miri, i),
-                    'gemini': _select_value(mc.embedding.gemini, i),
-                    'miri_output': _select_value(mc.embedding.miri_output, i),
-                    'gemini_output': _select_value(mc.embedding.gemini_output, i),
-                },
-                'hidden_features': _select_value(mc.hidden_features, i),
-                'no_of_params': _select_value(mc.no_of_params, i),
-                'transforms': _select_value(mc.transforms, i),
-                'signal': _select_value(mc.signal, i),
-            }
-            if mc.batch_size is not None:
-                model_config_dict['batch_size'] = _select_value(mc.batch_size, i)
+    #     # Select model config
+    #     model_config_dict = {}
+    #     if self.model_config:
+    #         mc = self.model_config
+    #         model_config_dict = {
+    #             'embedding': {
+    #                 'miri': _select_value(mc.embedding.miri, i),
+    #                 'gemini': _select_value(mc.embedding.gemini, i),
+    #                 'miri_output': _select_value(mc.embedding.miri_output, i),
+    #                 'gemini_output': _select_value(mc.embedding.gemini_output, i),
+    #             },
+    #             'hidden_features': _select_value(mc.hidden_features, i),
+    #             'no_of_params': _select_value(mc.no_of_params, i),
+    #             'transforms': _select_value(mc.transforms, i),
+    #             'signal': _select_value(mc.signal, i),
+    #         }
+    #         if mc.batch_size is not None:
+    #             model_config_dict['batch_size'] = _select_value(mc.batch_size, i)
         
-        # Select training config
-        training_dict = {}
-        if self.training:
-            tc = self.training
-            training_dict = {
-                'epochs': _select_value(tc.epochs, i),
-                'epoch_fin': _select_value(tc.epoch_fin, i),
-                'clip_grad_norm': tc.clip_grad_norm,
-                'gradient_steps_train': tc.gradient_steps_train,
-                'gradient_steps_valid': tc.gradient_steps_valid,
-                'stop_criterion': tc.stop_criterion,
-                'checkpoint_interval': tc.checkpoint_interval,
-            }
-            if tc.batch_size is not None:
-                training_dict['batch_size'] = _select_value(tc.batch_size, i)
-            if tc.optimizer:
-                training_dict['optimizer'] = tc.optimizer
-            if tc.scheduler:
-                training_dict['scheduler'] = tc.scheduler
+    #     # Select training config
+    #     training_dict = {}
+    #     if self.training:
+    #         tc = self.training
+    #         training_dict = {
+    #             'epochs': _select_value(tc.epochs, i),
+    #             'epoch_fin': _select_value(tc.epoch_fin, i),
+    #             'clip_grad_norm': tc.clip_grad_norm,
+    #             'gradient_steps_train': tc.gradient_steps_train,
+    #             'gradient_steps_valid': tc.gradient_steps_valid,
+    #             'stop_criterion': tc.stop_criterion,
+    #             'checkpoint_interval': tc.checkpoint_interval,
+    #         }
+    #         if tc.batch_size is not None:
+    #             training_dict['batch_size'] = _select_value(tc.batch_size, i)
+    #         if tc.optimizer:
+    #             training_dict['optimizer'] = tc.optimizer
+    #         if tc.scheduler:
+    #             training_dict['scheduler'] = tc.scheduler
         
-        # Select loss config
-        loss_dict = {}
-        if self.Loss:
-            lc = self.Loss
-            loss_dict = {
-                'loss_type': _select_value(lc.loss_type, i),
-            }
-            if lc.optimizer:
-                loss_dict['optimizer'] = lc.optimizer
-            if lc.scheduler:
-                loss_dict['scheduler'] = lc.scheduler
+    #     # Select loss config
+    #     loss_dict = {}
+    #     if self.Loss:
+    #         lc = self.Loss
+    #         loss_dict = {
+    #             'loss_type': _select_value(lc.loss_type, i),
+    #         }
+    #         if lc.optimizer:
+    #             loss_dict['optimizer'] = lc.optimizer
+    #         if lc.scheduler:
+    #             loss_dict['scheduler'] = lc.scheduler
         
-        # Build new config dict
-        config_data = {
-            'model_config': model_config_dict if model_config_dict else None,
-            'Loss': loss_dict if loss_dict else None,
-            'training': training_dict if training_dict else None,
-            'pipe': self.pipe,
-            'Prior': self.Prior,
-            'wandb': self.wandb,
-            'paths': self.paths,
-        }
+    #     # Build new config dict
+    #     config_data = {
+    #         'model_config': model_config_dict if model_config_dict else None,
+    #         'Loss': loss_dict if loss_dict else None,
+    #         'training': training_dict if training_dict else None,
+    #         'pipe': self.pipe,
+    #         'Prior': self.Prior,
+    #         'wandb': self.wandb,
+    #         'paths': self.paths,
+    #     }
         
-        return BaseConfig(**config_data)
+    #     return BaseConfig(**config_data)
 
-
-class MetricsConfig(BaseModel):
-    """Configuration for metrics logging."""
-    enabled: bool = True
-    log_interval: int = 100
-    wandb_project: Optional[str] = None
-    wandb_entity: Optional[str] = None
