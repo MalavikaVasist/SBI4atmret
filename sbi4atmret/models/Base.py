@@ -3,6 +3,7 @@ from typing import Union
 
 from ..config.configs import BaseConfig
 from estimator.base import EstimatorBase
+from datasets.base import Dataset
 from torchutils.general import _resolve_device
 from pathlib import Path
 import wandb
@@ -26,6 +27,7 @@ class Base:
         self.scheduler = None
         self.loss = None
         self.prior = None
+        self.pipe = None
 
     
     def build(self):
@@ -46,6 +48,8 @@ class Base:
 
         self.optimizer = self.config.build_optimizer(self.estimator.parameters())
         self.scheduler = self.config.build_scheduler(self.optimizer)
+
+        self.pipe = self.config.build_pipe()
 
         return self
 
@@ -95,7 +99,6 @@ class Base:
         if self.estimator is None:
             self.build()
 
-        dataset = load_dataset_batchwise()
 
         # --- WandB ---
         wandb_cfg = self.config.wandb_config
@@ -114,9 +117,17 @@ class Base:
         start_epoch = self.config.training_config.epoch_fin
         end_epoch = self.config.training_config.epochs
 
+        dataset = Dataset(self.config.dataset_config) 
+        dataloaders = dataset.return_dataloaders()
+
+
         # --- Loop ---
         for epoch in tqdm(range(start_epoch, end_epoch), unit="epoch"):
 
+            for batches in zip(dataloaders):
+                theta, x = pipe(*batches)
+
+                losse = model(theta, x)
 
 
             trainsets = [

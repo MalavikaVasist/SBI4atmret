@@ -1,106 +1,45 @@
-from config import BaseConfig
-
-class BasePipe:
-    def __init__(self, config):
-        self.config = config
-
-    def mask(self, x, instrument):
-        # implement masking logic per instrument
-        return x
-
-    def transform_uniform(x, a, b, c, d):
-        # Check if x is within the original range
-        if a <= x <= b:
-            # Apply the transformation formula
-            y = c + ((x - a) * (d - c)) / (b - a)
-            return y
-        else:
-            raise ValueError(f"x must be in the range [{a}, {b}]")
-        
-        return 
-
-    def __call__(self, batch):
-        return self.transform(*batch)
+from config import DatasetConfig
+from lampe.data import H5Dataset
+from pathlib import Path
 
 class Dataset:
-    def __init__(self, config: BaseConfig):
-        self.config = config
+    def __init__(self, config: DatasetConfig):
+        self.dataset_config = config
 
-
-
-    def len_dataset(self):
-
-
-    def load_dataset_batchwise(
+    def build_dataloader_batchwise(
         self,
-        config: BaseConfig, 
-        dataset_name: str,
-        split: str = 'train'
-    ) -> H5Dataset:
-        """
-        Load dataset in batches using H5Dataset.
-        
-        Args:
-            config: BaseConfig instance with dataset configuration
-            dataset_name: Name of the dataset to load
-            split: Dataset split ('train', 'valid', or 'test')
-            
-        Returns:
-            H5Dataset instance
-            
-        Raises:
-            ValueError: If config is invalid or dataset path doesn't exist
-        """
-        if not isinstance(config, BaseConfig):
-            raise TypeError(f"Expected BaseConfig, got {type(config)}")
-        
-        if config.observation is None:
-            raise ValueError("Observation configuration not found in config")
-        
-        # Construct dataset path
-        dataset_config = config.observation
-        if not hasattr(dataset_config, 'dataset_path') or dataset_config.dataset_path is None:
-            raise ValueError("Dataset path not configured in observation config")
-        
-        # Get batch size from training config
-        batch_size = 64  # Default batch size
-        if config.training and hasattr(config.training, 'batch_size'):
-            batch_size = config.training.batch_size
-            if isinstance(batch_size, list):
-                batch_size = batch_size[0]
-        
-        # Construct full path
-        dataset_path_dict = dataset_config.dataset_path
-        if isinstance(dataset_path_dict, dict):
-            # Try to get path for the dataset
-            path = dataset_path_dict.get(split, {}).get(dataset_name, None)
-            if path is None:
-                # Try alternate structure
-                for key, val in dataset_path_dict.items():
-                    if isinstance(val, dict) and dataset_name in val:
-                        path = val[dataset_name]
-                        break
+        datapath: str,
+        split: str, 
+        batch_size : int, 
+        shuffle: str) -> H5Dataset:
+
+        if split == 'test':
+            return H5Dataset(Path(datapath) / split/ '.h5', 
+                               batch_size = 16, 
+                               shuffle = shuffle)
         else:
-            path = str(dataset_path_dict)
-        
-        if path is None:
-            raise ValueError(f"Dataset path for '{dataset_name}' not found in config")
-        
-        path = Path(path)
-        if not path.exists():
-            raise FileNotFoundError(f"Dataset path does not exist: {path}")
-        
-        logger.info(f"Loading dataset from {path} with batch_size={batch_size}...")
-        
-        try:
-            dataset = H5Dataset(path, batch_size=batch_size)
-            logger.info(f"Dataset loaded successfully: {len(dataset) if hasattr(dataset, '__len__') else 'unknown'} samples")
-            return dataset
-        except Exception as e:
-            logger.error(f"Failed to load dataset: {e}")
-            raise
+            return H5Dataset(Path(datapath) / split/ '.h5', 
+                               batch_size = batch_size, 
+                               shuffle = shuffle)
 
 
-    def apply_pipeline():
+    def return_dataloaders(
+        self,
+    ) -> List[H5Dataset]: ## [train, valid, test]
+
+    dataloader_list = []
+    data_config = self.config.dataset_config
+
+    for atm in data_config.dataset_path.keys(): 
+        for inst in data_config.dataset_path[atm].keys():
+            for split in ['train', 'valid', 'test']:
+                dataloader_list.append(build_dataloader_batchwise(
+                                    datapath = data_config.dataset_path[atm][inst].path, 
+                                    split = split, 
+                                    batch_size = self.config.training.batch_size, 
+                                    shuffle= data_config.shuffle
+            ))
+                
+    return dataloader_list
 
     

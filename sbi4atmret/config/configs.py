@@ -193,9 +193,9 @@ class BaseConfig(BaseModel):
             optimizer=optimizer
         )
     
-
   
-
+    def build_pipe(self):
+        return self._build_component(self.dataset_config.pipe, config=self)
 
 
 
