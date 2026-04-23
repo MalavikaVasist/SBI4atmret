@@ -17,27 +17,30 @@ class BasePipe:
 
     def forward(self, *batches):
         raise NotImplementedError
-    
+
 
 class MiriGeminiHSTPipe(BasePipe):
     def __init__(self, config):
         super().__init__(config)
 
-        # example: build masks from config if needed
-        self.mask = ...
+        self.mask = ...  # from config if needed
 
-    def forward(self, *batches):
-        # unpack
-        (thetac, xc), (thetagc, xgc), (thetahc, xhc) = batches
 
-        # apply your slicing / masking logic
+    def forward(self, batches: dict):
+        thetac, xc = batches["miri"]
+        thetagc, xgc = batches["gemini"]
+        thetahc, xhc = batches["hst"]
+
         xc = xc[:, 1:1299]
         xgc = xgc[:, self.mask]
 
-        # combine however you want
-        theta = thetac  # or concatenate
+        theta = thetac
         x = torch.cat([xc, xgc, xhc], dim=-1)
 
         return theta, x
+
+
+
+
     
 

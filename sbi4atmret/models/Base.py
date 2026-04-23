@@ -124,40 +124,31 @@ class Base:
         # --- Loop ---
         for epoch in tqdm(range(start_epoch, end_epoch), unit="epoch"):
 
-            for batches in zip(dataloaders):
-                theta, x = pipe(*batches)
+            train_loaders = dataset.return_dataloaders()["train"]
 
-                losse = model(theta, x)
+            losses_train = torch.stack([
+                step(*pipe(dict(zip(train_loaders.keys(), batch_tuple))))
+                for batch_tuple in islice(zip(*train_loaders.values()), self.config.training_config.gradient_steps_train)
+            ]).cpu().numpy()
 
-
-            trainsets = [
-                datasets[cond][inst]["train"]
-                for cond in self.config.dataset_config.dataset_path.keys()
-                for inst in self.config.dataset_config.dataset_path[cond].keys()
-            ]
-
-            validsets = [
-                datasets[cond][inst]["valid"]
-                for cond in config.dataset_config.dataset_path.keys()
-                for inst in config.dataset_config.dataset_path[cond].keys()
-            ]
+  
 
             losses_train, duration = train_epoch(
-                estimator,
-                optimizer,
-                trainsets,
-                simulator,
-                loss_fn,
-                config.model_dump()
-            )
+                                                estimator,
+                                                optimizer,
+                                                trainsets,
+                                                simulator,
+                                                loss_fn,
+                                                config.model_dump()
+                                            )
 
             losses_val = validate_epoch(
-                estimator,
-                validsets,
-                simulator,
-                loss_fn,
-                optimizer,
-                config.model_dump()
+                                            estimator,
+                                            validsets,
+                                            simulator,
+                                            loss_fn,
+                                            optimizer,
+                                            config.model_dump()
             )
 
             # --- Logging ---
