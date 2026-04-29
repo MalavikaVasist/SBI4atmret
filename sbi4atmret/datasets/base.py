@@ -91,32 +91,11 @@ class Dataset:
                     dataloaders[split][condition][instrument_name] = loader
 
         return dataloaders
-    
 
-    def batch_generator(dataloaders_split):
-
-        conditions = list(dataloaders_split.keys())
-
-        # assert len(instruments) == self.config.observation.instruments.keys()
-
-        for condition in conditions: ##cloudfree/cloudy
-            instruments = list(dataloaders_split[condition].keys())
-
-            for batches in zip(*dataloaders_split[condition].values()):
-                
-
-                batch_dict = {
-                    condition: {
-                        inst: batch
-                        for inst, batch in zip(instruments, batches)
-                    }
-                }
-
-                yield batch_dict
-
-
-
-            """
+    def flatten_loaders(loaders_dict):
+        """
+        train/test/valid loaders 
+        loaders_dict= 
         "cloudfree": {
                 "miri": "loader".
                 "gemini": "loader",
@@ -125,13 +104,46 @@ class Dataset:
         "cloudy": {
                 "miri": "loader",
                 "gemini": "loader",
-                "hst": loader
+                "hst": "loader"
             }
         
         """
-            
+        keys = []
+        loaders = []
 
-    """
-        {"cloudfree": {"miri": "loader","gemini": "loader","hst": "loader"},"cloudy": {"miri": "loader", "gemini": "loader", "hst": "loader"}}
-        
+        for outer_k, inner_dict in loaders_dict.items():
+            for inner_k, loader in inner_dict.items():
+                keys.append((outer_k, inner_k))
+                loaders.append(loader)
+
+        return keys, loaders
+
+    def reconstruct_batch(keys, batches):
         """
+        args: 
+        keys : (cloudfree, miri), (cloudfree, hst)...
+        batches : (theta, x)
+
+        returns: one batch from each loader dict
+        batch_dict = {
+                    "cloudfree": {
+                            "miri": (theta,x), .
+                            "gemini":  (theta,x),
+                            "hst":  (theta,x)
+                        }
+                    "cloudy": {
+                            "miri":  (theta,x),
+                            "gemini":  (theta,x),
+                            "hst":  (theta,x)
+                        
+                        }
+        """
+        batch_dict = {}
+
+        for (outer_k, inner_k), batch in zip(keys, batches):
+            batch_dict.setdefault(outer_k, {})[inner_k] = batch
+
+        return batch_dict
+
+
+

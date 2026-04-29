@@ -83,7 +83,6 @@ class Base:
             except TypeError:
                 scheduler.step(metric)
 
-
     def train(
         self,
         datasets,
@@ -120,23 +119,19 @@ class Base:
         dataset = Dataset(self.config.dataset_config) 
         dataloaders_dict = dataset.return_dataloaders()
 
-
         # --- Loop ---
         for epoch in tqdm(range(start_epoch, end_epoch), unit="epoch"):
 
-            train_loaders = dataloaders_dict["train"]
-            test_loaders = dataloaders_dict["valid"]
+            train_keys, train_loaders = dataset.flatten_loaders(dataloaders_dict["train"])
+            test_keys, test_loaders = dataset.flatten_loaders(dataloaders_dict["valid"])
 
-            for batch_dict in batch_generator(train_loaders):
-                loss_batch = pipe(batch_dict)
+            
+        for batches in islice(zip(*train_loaders), self.config.training_config.gradient_steps_train):
+            batch_dict = dataset.reconstruct_batch(train_keys, batches)
+            batches = dataset.modify_batch(train_keys, batches)  
+            loss_batch = self.pipe(batch_dict, self.loss)
 
 
-            # losses_train = torch.stack([
-            #     step(*pipe(dict(zip(train_loaders.keys(), batch_tuple))))
-            #     for batch_tuple in islice(zip(*train_loaders.values()), self.config.training_config.gradient_steps_train)
-            # ]).cpu().numpy()
-
-  
 
             losses_train, duration = train_epoch(
                                                 estimator,
