@@ -18,6 +18,7 @@ observation:
 dataset:
   D: 7.34
   shuffle: true
+  order: ["miri", "gemini", "hst"] ## important for pipe functions
   dataset_path:
     cloudfree:
       miri:

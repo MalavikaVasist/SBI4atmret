@@ -38,6 +38,7 @@ class DatasetConfig(BaseModel):
     """Configuration for dataset loading."""
     D: float
     shuffle: bool
+    order: List[str]
     dataset_path: dict[str, dict[str, InstrumentPath]]  # condition → instrument → path
     savepath: str
     pipe: ComponentConfig

@@ -42,36 +42,45 @@ class Dataset:
         )
 
     def return_dataloaders(self) -> Dict[str, Dict[str, H5Dataset]]:
+
         """
         Returns:
-            {
-                "train": {
+            {train:{
+                cloudfree: {
                     "miri": loader,
                     "gemini": loader,
                     "hst": loader
                 },
-                "valid": {...},
-                "test": {...}
-            }
+                cloudy :{
+                    "miri": loader,
+                    "gemini": loader,
+                    "hst": loader
+                },
+            
+            "valid": {...},
+            "test": {...}
+            }}
+
         """
 
         dataset_paths = self.dataset_config.dataset_path
         batch_size = self.training_config.batch_size
         shuffle = self.dataset_config.shuffle
 
-        dataloaders = {
-            "train": {},
-            "valid": {},
-            "test": {}
-        }
+        dataloaders = {}
 
-        # loop over condition (e.g. cloudfree)
-        for condition, instruments in dataset_paths.items():
+        for split in ["train", "valid", "test"]:
+            dataloaders[split] = {}
 
-            for instrument_name, inst_cfg in instruments.items():
-                datapath = inst_cfg.path
+            for condition, instruments in dataset_paths.items():
 
-                for split in ["train", "valid", "test"]:
+                # initialize condition inside split
+                if condition not in dataloaders[split]:
+                    dataloaders[split][condition] = {}
+
+                for instrument_name, inst_cfg in instruments.items():
+                    datapath = inst_cfg.path
+
                     loader = self._build_single_loader(
                         datapath=datapath,
                         split=split,
@@ -79,6 +88,50 @@ class Dataset:
                         shuffle=shuffle if split != "test" else False
                     )
 
-                    dataloaders[split][instrument_name] = loader
+                    dataloaders[split][condition][instrument_name] = loader
 
         return dataloaders
+    
+
+    def batch_generator(dataloaders_split):
+
+        conditions = list(dataloaders_split.keys())
+
+        # assert len(instruments) == self.config.observation.instruments.keys()
+
+        for condition in conditions: ##cloudfree/cloudy
+            instruments = list(dataloaders_split[condition].keys())
+
+            for batches in zip(*dataloaders_split[condition].values()):
+                
+
+                batch_dict = {
+                    condition: {
+                        inst: batch
+                        for inst, batch in zip(instruments, batches)
+                    }
+                }
+
+                yield batch_dict
+
+
+
+            """
+        "cloudfree": {
+                "miri": "loader".
+                "gemini": "loader",
+                "hst": "loader"
+            }
+        "cloudy": {
+                "miri": "loader",
+                "gemini": "loader",
+                "hst": loader
+            }
+        
+        """
+            
+
+    """
+        {"cloudfree": {"miri": "loader","gemini": "loader","hst": "loader"},"cloudy": {"miri": "loader", "gemini": "loader", "hst": "loader"}}
+        
+        """

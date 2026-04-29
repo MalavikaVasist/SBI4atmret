@@ -2,9 +2,6 @@
 
 
 
-
-
-
 class BasePipe:
     def __init__(self, config):
         self.config = config
@@ -18,6 +15,12 @@ class BasePipe:
     def forward(self, *batches):
         raise NotImplementedError
 
+    def get_inst(self, batches, condition, instrument):
+        try:
+            return batches[condition][instrument]
+        except KeyError:
+            raise KeyError(f"Missing {condition}/{instrument} in batches")
+
 
 class MiriGeminiHSTPipe(BasePipe):
     def __init__(self, config):
@@ -25,11 +28,10 @@ class MiriGeminiHSTPipe(BasePipe):
 
         self.mask = ...  # from config if needed
 
-
     def forward(self, batches: dict):
-        thetac, xc = batches["miri"]
-        thetagc, xgc = batches["gemini"]
-        thetahc, xhc = batches["hst"]
+        thetac, xc = self.get_inst(batches, "cloudfree", "miri")
+        thetagc, xgc = self.get_inst(batches, "cloudfree", "gemini")
+        thetahc, xhc = self.get_inst(batches, "cloudfree", "hst")
 
         xc = xc[:, 1:1299]
         xgc = xgc[:, self.mask]
@@ -38,9 +40,37 @@ class MiriGeminiHSTPipe(BasePipe):
         x = torch.cat([xc, xgc, xhc], dim=-1)
 
         return theta, x
+    
+
+
 
 
 
 
     
+    """
+    Returns:
+        {train:{
+            cloudfree: {
+                "miri": loader,
+                "gemini": loader,
+                "hst": loader
+            },
+            cloudy :{
+                "miri": loader,
+                "gemini": loader,
+                "hst": loader
+            },
+        
+        "valid": {...},
+        "test": {...}
+        }}
+
+    i want to assign each loader to batches now as theta, x = 
+
+    turn it into 
+    dict[cf][miri] == trainset_cloudfree_miri
+
+
+    """
 

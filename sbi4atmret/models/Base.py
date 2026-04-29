@@ -118,18 +118,23 @@ class Base:
         end_epoch = self.config.training_config.epochs
 
         dataset = Dataset(self.config.dataset_config) 
-        dataloaders = dataset.return_dataloaders()
+        dataloaders_dict = dataset.return_dataloaders()
 
 
         # --- Loop ---
         for epoch in tqdm(range(start_epoch, end_epoch), unit="epoch"):
 
-            train_loaders = dataset.return_dataloaders()["train"]
+            train_loaders = dataloaders_dict["train"]
+            test_loaders = dataloaders_dict["valid"]
 
-            losses_train = torch.stack([
-                step(*pipe(dict(zip(train_loaders.keys(), batch_tuple))))
-                for batch_tuple in islice(zip(*train_loaders.values()), self.config.training_config.gradient_steps_train)
-            ]).cpu().numpy()
+            for batch_dict in batch_generator(train_loaders):
+                loss_batch = pipe(batch_dict)
+
+
+            # losses_train = torch.stack([
+            #     step(*pipe(dict(zip(train_loaders.keys(), batch_tuple))))
+            #     for batch_tuple in islice(zip(*train_loaders.values()), self.config.training_config.gradient_steps_train)
+            # ]).cpu().numpy()
 
   
 
