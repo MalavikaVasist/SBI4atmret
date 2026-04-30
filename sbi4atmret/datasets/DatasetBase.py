@@ -11,6 +11,7 @@ class Dataset:
             config: BaseConfig
         """
         self.config = config
+        self.pipe = self.config.build_pipe()
         self.dataset_config = config.dataset_config
         self.training_config = config.training_config
 
@@ -41,7 +42,7 @@ class Dataset:
             shuffle=shuffle
         )
 
-    def return_dataloaders(self) -> Dict[str, Dict[str, H5Dataset]]:
+    def return_dataloaders_dict(self) -> Dict[str, Dict[str, H5Dataset]]:
 
         """
         Returns:
@@ -144,6 +145,5 @@ class Dataset:
             batch_dict.setdefault(outer_k, {})[inner_k] = batch
 
         return batch_dict
-
 
 

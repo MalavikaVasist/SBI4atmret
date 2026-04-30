@@ -8,7 +8,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 from sbi4atmret.config.configs import BaseConfig
-from sbi4atmret.models.Base import Base
+from sbi4atmret.models.base import Base
 from sbi4atmret.Train.args import parse_args, get_config_path
 from sbi4atmret.simulators.simulator import build_simulator
 from scripts.data import load_observations_data, load_datasets
@@ -54,23 +54,32 @@ if args.action == 'train':
     load model and dataset depending on whether I'm resuming or starting from scratch
     '''
     checkpoint_file_path = args.config_dir / args.checkpoint_name
-    if checkpoint_file_path.exists():
-        print("Checkpoint found, resuming training!", flush=True)
-        model, dataset = load_model_dataset_resume(
-            experiment_dir=args.config_dir,
-            checkpoint_name=args.checkpoint_name,
-            config=config,
-        )
-        print()
+    print("Checkpoint found, resuming training!", flush=True)
+    
+    config = load_config()
 
-    # If no checkpoint file exists, we need to start from scratch
-    else:
-        print("No checkpoint found, starting new training!", flush=True)
-        model, dataset = load_model_dataset_new (
-            experiment_dir=args.config_dir,
-            config=config,
-        )
-        print()
+    model = BaseModel(config)
+    model.build()
+
+    dataset = Dataset(config.dataset_config)
+
+    ctx = setup_training(config, model, dataset)
+
+    trainer = Trainer(
+        model=model,
+        context=ctx,
+        config=config,
+    )
+
+    trainer.train(resume_from=ctx.checkpoint_path)
+
+
+    print("No checkpoint found, starting new training!", flush=True)
+    model, dataset = load_model_dataset_new (
+        experiment_dir=args.config_dir,
+        config=config,
+    )
+    print()
 
 
     '''

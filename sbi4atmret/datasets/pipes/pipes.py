@@ -16,13 +16,7 @@ class BasePipe:
     def forward(self, *batches):
         raise NotImplementedError
 
-    def get_inst(self, batches, condition, instrument):
-        try:
-            return batches[condition][instrument]
-        except KeyError:
-            raise KeyError(f"Missing {condition}/{instrument} in batches")
-        
-    def mask(self):
+    def _build_mask(self):
         return NotImplementedError
 
 
@@ -64,7 +58,7 @@ class MiriGeminiHSTPipe(BasePipe):
         thetagc, xgc = cf["gemini"]
         thetahc, xhc = cf["hst"]
 
-        # vectorized transform (assuming transform_uniform supports tensors)
+        # vectorized transform 
         thetahc[:, -1] = transform_uniform(thetahc[:, -1], -17, -11, -15, -7)
         thetagc[:, -1] = transform_uniform(thetagc[:, -1], -17, -11, -15, -7)
 
@@ -86,17 +80,14 @@ class MiriGeminiHSTPipe(BasePipe):
 
         return theta, x
 
-    def forward(self, batch_dict: dict, loss: object):
+    def forward(self, batch_dict: dict):
 
         batch_dict = self.modify_spec(batch_dict)
         batch_dict = self.modify_prior(batch_dict)
         batch_dict = GaussianNoise(batch_dict)
         theta, x = self.build_input(batch_dict)
 
-        if loss:
-            return loss(theta, x)
-        else:
-            return theta, x 
+        return theta, x 
     
 
 
@@ -105,29 +96,3 @@ class MiriGeminiHSTPipe(BasePipe):
 
 
     
-    """
-    Returns:
-        {train:{
-            cloudfree: {
-                "miri": loader,
-                "gemini": loader,
-                "hst": loader
-            },
-            cloudy :{
-                "miri": loader,
-                "gemini": loader,
-                "hst": loader
-            },
-        
-        "valid": {...},
-        "test": {...}
-        }}
-
-    i want to assign each loader to batches now as theta, x = 
-
-    turn it into 
-    dict[cf][miri] == trainset_cloudfree_miri
-
-
-    """
-

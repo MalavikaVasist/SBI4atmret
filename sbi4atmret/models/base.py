@@ -3,14 +3,14 @@ from typing import Union
 
 from ..config.configs import BaseConfig
 from estimator.base import EstimatorBase
-from datasets.base import Dataset
+from sbi4atmret.datasets.DatasetBase import Dataset
 from torchutils.general import _resolve_device
 from pathlib import Path
 import wandb
 from tqdm import tqdm
 
 
-class Base:
+class BaseModel:
     """
     Base class for all models providing common setup and utility methods.
     """
@@ -37,28 +37,9 @@ class Base:
 
         # --- Compose estimator ---
         self.estimator = EstimatorBase(flow, embedding)
-        self.estimator = self.to_device(self.estimator)
-
-        # --- Compose prior ---
-        self.prior = self.config.build_prior()
-        self.prior = self.to_device(self.prior)
-
-        # --- Training components ---
-        self.loss = self.config.build_loss(self.estimator, self.prior)
-
-        self.optimizer = self.config.build_optimizer(self.estimator.parameters())
-        self.scheduler = self.config.build_scheduler(self.optimizer)
-
-        self.pipe = self.config.build_pipe()
 
         return self
 
-    
-    def to_device(self, module):
-        if module is None:
-            return None
-
-        return module.to(self.device)
 
     
     def load_from_checkpoint(self, path: str):
@@ -84,19 +65,34 @@ class Base:
                 scheduler.step(metric)
 
     def train(
-        self,
-        datasets,
-        simulator,
-        observation,
-        checkpoint_fn=None,
-    ):
+        self, ctx: TrainingContext):
+
         """
         Train the model using already-built components.
         """
 
+        optimizer = ctx.optimizer
+        loss_fn = ctx.loss_fn
+        .
+        .
+        .
+        .
+
+
+
+
         # --- Build if not already done ---
         if self.estimator is None:
             self.build()
+
+        loss_fn.estimator = self.estimator
+
+
+
+        ##to device all 
+        prior = to_device(prior, device)
+
+
 
 
         # --- WandB ---
@@ -117,38 +113,32 @@ class Base:
         end_epoch = self.config.training_config.epochs
 
         dataset = Dataset(self.config.dataset_config) 
-        dataloaders_dict = dataset.return_dataloaders()
+        dataloaders_dict = dataset.return_dataloaders_dict()
+
+        train_keys, train_loaders = dataset.flatten_loaders(dataloaders_dict["train"])
+        valid_keys, valid_loaders = dataset.flatten_loaders(dataloaders_dict["valid"])
 
         # --- Loop ---
         for epoch in tqdm(range(start_epoch, end_epoch), unit="epoch"):
 
-            train_keys, train_loaders = dataset.flatten_loaders(dataloaders_dict["train"])
-            test_keys, test_loaders = dataset.flatten_loaders(dataloaders_dict["valid"])
-
-            
-        for batches in islice(zip(*train_loaders), self.config.training_config.gradient_steps_train):
-            batch_dict = dataset.reconstruct_batch(train_keys, batches)
-            batches = dataset.modify_batch(train_keys, batches)  
-            loss_batch = self.pipe(batch_dict, self.loss)
-
-
-
-            losses_train, duration = train_epoch(
-                                                estimator,
-                                                optimizer,
-                                                trainsets,
-                                                simulator,
-                                                loss_fn,
-                                                config.model_dump()
+            losses_train, duration = train_one_epoch(
+                                                self.estimator,
+                                                self.optimizer,
+                                                train_keys, 
+                                                train_loaders,
+                                                self.simulator,
+                                                self.loss,
+                                                self.config.model_dump()
                                             )
 
-            losses_val = validate_epoch(
-                                            estimator,
-                                            validsets,
-                                            simulator,
-                                            loss_fn,
-                                            optimizer,
-                                            config.model_dump()
+            losses_val = validate_one_epoch(
+                                            self.estimator,
+                                            self.optimizer,
+                                            valid_keys, 
+                                            valid_loaders,
+                                            self.simulator,
+                                            self.loss,
+                                            self.config.model_dump()
             )
 
             # --- Logging ---
@@ -178,6 +168,13 @@ class Base:
             ):
                 break
 
+        
+        run.finish()
+
+        return self.estimator, runpath
+
+
+    def test(eslf):
         # --- Test ---
         testsets = [
             datasets[cond][inst]["test"]
@@ -197,10 +194,6 @@ class Base:
 
         for key, fig in plot_dict.items():
             run.log({key: wandb.Image(fig)})
-
-        run.finish()
-
-        return self.estimator, runpath
 
 
     def log_metrics(self, metrics: dict, step: int = None):

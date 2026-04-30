@@ -11,3 +11,4 @@ def transform_uniform(x, a, b, c, d):
         else:
             raise ValueError(f"x must be in the range [{a}, {b}]")
 
+
