@@ -31,6 +31,9 @@ dataset:
   pipe:
     type: pipes.pipe_HST_Gemini_MIRI_cloudfree.MiriGeminiHSTPipe
     kwargs: {}
+  noise:
+    type: likelihoods.gaussian.Gaussian
+    kwargs: {}
 
 simulator:
   type: cloudfree
@@ -254,9 +257,9 @@ training:
     type: BNPELoss
     kwargs: {}
 
-  epochs: 800
+  epoch_start: 0
   batch_size: 1024
-  epoch_fin: 800
+  epoch_final: 800
   gradient_steps_train: 1700
   gradient_steps_valid: 170
   clip_grad_norm: 1.0

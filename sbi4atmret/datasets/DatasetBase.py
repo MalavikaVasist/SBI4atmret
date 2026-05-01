@@ -96,46 +96,58 @@ class Dataset:
     def flatten_loaders(loaders_dict):
         """
         train/test/valid loaders 
+        input: 
         loaders_dict= 
-        "cloudfree": {
-                "miri": "loader".
-                "gemini": "loader",
-                "hst": "loader"
-            }
-        "cloudy": {
-                "miri": "loader",
-                "gemini": "loader",
-                "hst": "loader"
-            }
-        
+                        {"cloudfree": {
+                                "miri": "loader".
+                                "gemini": "loader",
+                                "hst": "loader"
+                            }
+                        "cloudy": {
+                                "miri": "loader",
+                                "gemini": "loader",
+                                "hst": "loader"
+                            }
+                        }
+
+        returns :
+        keys : (cloudfree, gemini), (cloudfree, hst)...('cloudy', 'gemini'),.... alphabetically ordered
+        loaders : loader, loader, ......
         """
         keys = []
         loaders = []
 
-        for outer_k, inner_dict in loaders_dict.items():
-            for inner_k, loader in inner_dict.items():
+
+        for outer_k in sorted(loaders_dict.keys()):
+            for inner_k in sorted(loaders_dict[outer_k].keys()):
                 keys.append((outer_k, inner_k))
-                loaders.append(loader)
+                loaders.append(loaders_dict[outer_k][inner_k])
+
+
+        # for outer_k, inner_dict in loaders_dict.items(): 
+        #     for inner_k, loader in inner_dict.items(): 
+        #         keys.append((outer_k, inner_k)) 
+        #         loaders.append(loader)
 
         return keys, loaders
 
     def reconstruct_batch(keys, batches):
         """
         args: 
-        keys : (cloudfree, miri), (cloudfree, hst)...
-        batches : (theta, x)
+        keys : (cloudfree, gemini), (cloudfree, hst)...('cloudy', 'gemini'),...
+        batches : batch, batch,..........
 
         returns: one batch from each loader dict
         batch_dict = {
                     "cloudfree": {
-                            "miri": (theta,x), .
                             "gemini":  (theta,x),
-                            "hst":  (theta,x)
+                            "hst":  (theta,x), 
+                            "miri": (theta,x)
                         }
                     "cloudy": {
-                            "miri":  (theta,x),
                             "gemini":  (theta,x),
-                            "hst":  (theta,x)
+                            "hst":  (theta,x),
+                            "miri":  (theta,x)
                         
                         }
         """

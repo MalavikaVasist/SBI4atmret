@@ -41,10 +41,6 @@ def train_epoch(estimator, step, trainsets, simulator, pipe, config: Mapping[str
     estimator.train()
     start = time.time()
 
-    for batches in islice(zip(*train_loaders), self.config.training_config.gradient_steps_train):
-        batch_dict = dataset.reconstruct_batch(train_keys, batches)
-        batches = dataset.modify_batch(train_keys, batches)  
-        loss_batch = self.pipe(batch_dict, self.loss)
 
     loss_train_list = []
     for data_tuple in islice(zip(*trainsets), config["training"]["gradient_steps_train"]):
@@ -155,9 +151,10 @@ class Trainer:
         self.runpath = savepath / self.run.name
         self.runpath.mkdir(parents=True, exist_ok=True)
 
-        epochs = self.config.training_config.epochs
+        start_epoch = self.config.training_config.epoch_start
+        end_epoch = self.config.training_config.epoch_final
 
-        for epoch in range(epochs):
+        for epoch in tqdm(range(start_epoch, end_epoch), unit="epoch"):
 
             train_loss = self.train_one_epoch(epoch)
             val_loss = self.validate_one_epoch(epoch)
@@ -180,10 +177,15 @@ class Trainer:
 
         losses = []
 
-        for loader in self.train_loaders:
-            for batch in loader:
+        for batches in islice(zip(*self.train_loaders), self.config.training_config.gradient_steps_train):
+                
+                batch_dict = self.dataset.reconstruct_batch(self.train_keys, batches)
+                batch_dict = self.pipe(batch_dict) #modifications- scaling and masking spec, prior expansion
+                noisy_batch_dict = self.noise(batch_dict)
+                theta, x = self.build_input(noisy_batch_dict)
 
-                batch = self._to_device(batch)
+
+                theta, x  = self._to_device(theta), self._to_device(x)
 
                 self.optimizer.zero_grad()
 

@@ -94,9 +94,9 @@ class TrainingConfig(BaseModel):
     optimizer: ComponentConfig
     scheduler: ComponentConfig | None = None
     loss: ComponentConfig
-    epochs: int
+    epoch_start: int
     batch_size: int
-    epoch_fin: int
+    epoch_final: int
     gradient_steps_train: int
     gradient_steps_valid: int
     clip_grad_norm: float

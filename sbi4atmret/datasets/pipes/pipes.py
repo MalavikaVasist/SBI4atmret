@@ -1,23 +1,7 @@
 
+from PipeBase import BasePipe
 from sbi4atmret.utils.general import transform_uniform
 import torch
-from likelihoods import GaussianNoise
-
-class BasePipe:
-    def __init__(self, config):
-        self.config = config
-
-    def __call__(self, *batches):
-        """
-        batches = [(theta1, x1), (theta2, x2), ...]
-        """
-        return self.forward(*batches)
-
-    def forward(self, *batches):
-        raise NotImplementedError
-
-    def _build_mask(self):
-        return NotImplementedError
 
 
 class MiriGeminiHSTPipe(BasePipe):
@@ -84,10 +68,8 @@ class MiriGeminiHSTPipe(BasePipe):
 
         batch_dict = self.modify_spec(batch_dict)
         batch_dict = self.modify_prior(batch_dict)
-        batch_dict = GaussianNoise(batch_dict)
-        theta, x = self.build_input(batch_dict)
 
-        return theta, x 
+        return batch_dict 
     
 
 
