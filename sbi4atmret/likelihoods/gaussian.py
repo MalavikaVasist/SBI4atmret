@@ -1,20 +1,16 @@
 import torch
+from NoiseBase import BaseNoise
+from torch import Tensor
+from ..datasets.pipes.PipeBase import BasePipe
 
-
-class GaussianNoise():
+class GaussianNoise(BaseNoise):
     
-    def __init__(self):
-        pass
-
-    def noise(x, theta, sigma):
-        b = torch.unsqueeze(b, 1)
-        sigma_new = torch.sqrt(torch.Tensor(sigma)**2 + 10**b)
-        error_new = sigma_new * torch.randn_like(x) * simulator_miri_cloudfree.scale    
-        return x + error_new , sigma_new
+    def __init__(self, config):
+        super().__init__(config)
 
     def forward(theta, x)-> Tensor:
         
-        x, _ = noisybfactor(x, b, sigmaM)
+        x, _ = self.noisybfactor(x, b, sigmaM)
 
         xg, _ = noisybfactor(xg, thetag[:,-1], sigmaG)
         

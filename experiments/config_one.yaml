@@ -3,17 +3,19 @@ home_env: HOME
 
 observation:
   source: WISEJ1738
-  instruments:
+  instruments: ##order is important
     hst:
-      wavelength_ranges: [0.98, 2.2]
-      path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudfree/spectrum.csv
+      wavelength_range: [0.98, 2.2]
+      path: JWST/observations/WISEJ1738/HST/cloudfree/spectrum.csv
     gemini:
-      wavelength_ranges: [0.98, 2.2]
-      path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/GEMINI/conv_rebinned/cloudfree/spectrum.csv
+      wavelength_range: [0.98, 2.2]
+      path: JWST/observations/WISEJ1738/GEMINI/cloudfree/spectrum.csv
     miri:
-      wavelength_ranges: [4.9, 19]
-      path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI/conv_rebinned/cloudfree/spectrum.csv
-  simulation: false
+      wavelength_range: [4.9, 19]
+      path: JWST/observations/WISEJ1738/MIRI/cloudfree/spectrum.csv
+  simulated: 
+    path: JWST/observations/WISEJ1738/simulations/cloudfree/spectrum.csv
+
 
 dataset:
   D: 7.34

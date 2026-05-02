@@ -180,7 +180,7 @@ class Trainer:
         for batches in islice(zip(*self.train_loaders), self.config.training_config.gradient_steps_train):
                 
                 batch_dict = self.dataset.reconstruct_batch(self.train_keys, batches)
-                batch_dict = self.pipe(batch_dict) #modifications- scaling and masking spec, prior expansion
+                batch_dict = self.pipe(batch_dict, ) #modifications- scaling and masking spec, prior expansion
                 noisy_batch_dict = self.noise(batch_dict)
                 theta, x = self.build_input(noisy_batch_dict)
 

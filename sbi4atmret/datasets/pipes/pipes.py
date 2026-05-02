@@ -4,6 +4,7 @@ from sbi4atmret.utils.general import transform_uniform
 import torch
 
 
+
 class MiriGeminiHSTPipe(BasePipe):
     def __init__(self, config):
         super().__init__(config)
@@ -26,8 +27,18 @@ class MiriGeminiHSTPipe(BasePipe):
         thetagc, xgc = cf["gemini"]
         thetahc, xhc = cf["hst"]
 
+        ## add noise
+        x, _ = self._apply_noise(x, thetac[:, -1], sigmaM)
+
+        xg, _ = self._apply_noise(xg, thetagc[:,-1], sigmaG)
+        
+        thetahf = torch.flip(thetahc, dims=(0,))
+        xh, _ = self._apply_noise(xh, thetahf[:,-1], sigmaH)
+
         xc  = xc[:, 1:1299]
         xgc = xgc[:, self.mask]
+
+
 
         cf["miri"]   = (thetac, xc)
         cf["gemini"] = (thetagc, xgc)
@@ -38,7 +49,6 @@ class MiriGeminiHSTPipe(BasePipe):
     def modify_prior(self, batch_dict):
         cf = batch_dict["cloudfree"]
 
-        thetac, xc   = cf["miri"]
         thetagc, xgc = cf["gemini"]
         thetahc, xhc = cf["hst"]
 
@@ -46,11 +56,29 @@ class MiriGeminiHSTPipe(BasePipe):
         thetahc[:, -1] = transform_uniform(thetahc[:, -1], -17, -11, -15, -7)
         thetagc[:, -1] = transform_uniform(thetagc[:, -1], -17, -11, -15, -7)
 
-        cf["miri"]   = (thetac, xc)
         cf["gemini"] = (thetagc, xgc)
         cf["hst"]    = (thetahc, xhc)
 
         return batch_dict
+    
+    def modify_prior_new(self, batch_dict):
+        cf = batch_dict["cloudfree"]
+
+        thetac, xc   = cf["miri"]
+        thetagc, xgc = cf["gemini"]
+        thetahc, xhc = cf["hst"]
+    
+
+        idxg = self.param_index["Mike_Line_b_Cushing_g"]
+        idxh = self.param_index["Mike_Line_b_Cushing_h"]
+
+        thetagc[:, idxg] = transform_uniform(
+            thetagc[:, idxg], -17, -11, -15, -7
+        )
+        thetahc[:, idxh] = transform_uniform(
+            thetahc[:, idxh], -17, -11, -15, -7
+        )
+    
 
     def build_input(self, batch_dict):
         cf = batch_dict["cloudfree"]
@@ -63,6 +91,8 @@ class MiriGeminiHSTPipe(BasePipe):
         x = torch.cat([xc, xgc, xhc], dim=-1)
 
         return theta, x
+    
+
 
     def forward(self, batch_dict: dict):
 

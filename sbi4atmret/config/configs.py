@@ -10,7 +10,10 @@ import torch.optim as optim
 
 class InstrumentConfig(BaseModel):
     """Configuration for dataset paths for a specific instrument."""
-    wavelength: list[float]
+    wavelength_range: list[float]
+    path: str
+
+class SimulatedSpectrumConfig(BaseModel):
     path: str
 
 class InstrumentPath(BaseModel):
@@ -32,7 +35,7 @@ class ObservationConfig(BaseModel):
     """Configuration for observation settings."""
     source: str
     instruments: dict[str, InstrumentConfig]
-    simulation: bool
+    simulated: Optional[SimulatedSpectrumConfig] = None
 
 class DatasetConfig(BaseModel):
     """Configuration for dataset loading."""
@@ -42,6 +45,7 @@ class DatasetConfig(BaseModel):
     dataset_path: dict[str, dict[str, InstrumentPath]]  # condition → instrument → path
     savepath: str
     pipe: ComponentConfig
+    noise: ComponentConfig
 
 class SimulatorConfig(BaseModel):
     """Configuration for the simulator, including callable components and species information."""
@@ -196,7 +200,14 @@ class BaseConfig(BaseModel):
     
   
     def build_pipe(self):
-        return self._build_component(self.dataset_config.pipe, config=self)
+        return self._build_component(self.dataset_config.pipe, 
+                                     config=self)
+    
+
+    def build_noise(self):
+        return self._build_component(self.dataset_config.noise, 
+                                     config=self)
+    
 
 
 
