@@ -8,16 +8,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 import torch.optim as optim
 
 
-class InstrumentConfig(BaseModel):
-    """Configuration for dataset paths for a specific instrument."""
-    wavelength_range: list[float]
-    path: str
-
-class SimulatedSpectrumConfig(BaseModel):
-    path: str
 
 class InstrumentPath(BaseModel):
-    """Configuration for dataset paths for a specific instrument."""
+    """Configuration for dataset/observation paths for a specific instrument."""
     path: str
 
 class ConditionPaths(BaseModel):
@@ -34,8 +27,8 @@ class ComponentConfig(BaseModel):
 class ObservationConfig(BaseModel):
     """Configuration for observation settings."""
     source: str
-    instruments: dict[str, InstrumentConfig]
-    simulated: Optional[SimulatedSpectrumConfig] = None
+    instruments: dict[str, InstrumentPath]
+    simulated: Optional[InstrumentPath] = None
 
 class DatasetConfig(BaseModel):
     """Configuration for dataset loading."""
@@ -46,35 +39,6 @@ class DatasetConfig(BaseModel):
     savepath: str
     pipe: ComponentConfig
     noise: ComponentConfig
-
-class SimulatorConfig(BaseModel):
-    """Configuration for the simulator, including callable components and species information."""
-    type: str
-    callable: dict[str, ComponentConfig]  # emission_model, PT_profile, line_species
-    line_species: List[str]
-    cloud_species: Optional[List[str]] = None
-    rayleigh_species: List[str] 
-    continuum_species: List[str]
-    names : List[str]
-    pressure_scaling: float
-    pressure_simple: float
-    pressure_width: float
-    scale: float
-    N_nodes: int
-    N_data_sets: int
-    D_pl: float
-    AMR: bool
-    do_scat_emis: bool
-    contribution: bool
-    PT_plot_mode: bool
-    conv: bool
-
-    def build_simulator(self):
-        """Dynamically import and instantiate the simulator based on the configuration."""
-        sim_module = import_module(f"sbi4atmret.simulators.{self.type}")
-        sim_class = getattr(sim_module, self.type.capitalize() + "Simulator")
-        sim_kwargs = {key: comp.get_component() for key, comp in self.callable.items()}
-        return sim_class(**sim_kwargs, **self.dict(exclude={'callable'}))
 
 class ParameterConfig(BaseModel):
     """Configuration for a single parameter with bounds."""
@@ -119,13 +83,16 @@ class WandbConfig(BaseModel):
     time: str
     title: str
 
+class SimulatorConfig(ComponentConfig):
+    pass
+
 class BaseConfig(BaseModel):
     """Top-level configuration for training."""
     model_config = ConfigDict(extra='allow')
     
     observation_config: ObservationConfig
     dataset_config: DatasetConfig
-    simulator_config: Dict[str, Any]
+    simulator_config: Dict[str, SimulatorConfig]
     prior_config: PriorConfig
     estimator_config: EstimatorConfig
     training_config: TrainingConfig
@@ -153,9 +120,24 @@ class BaseConfig(BaseModel):
         return len(self.prior_config.parameters)
     
     # ---------- GENERIC BUILDER ----------
+
     def _build_component(self, cfg: ComponentConfig, **extra_kwargs):
         cls = load_callable(cfg.type)
-        return cls(**cfg.kwargs, **extra_kwargs)
+
+        kwargs = {}
+
+        for k, v in (cfg.kwargs or {}).items():
+
+            if isinstance(v, ComponentConfig):
+                kwargs[k] = self._build_component(v)
+
+            elif isinstance(v, dict) and "type" in v:
+                kwargs[k] = self._build_component(ComponentConfig(**v))
+
+            else:
+                kwargs[k] = v
+
+        return cls(**kwargs, **extra_kwargs)
 
     # ---------- SPECIFIC BUILDERS ----------
     def build_embedding(self):
@@ -197,7 +179,6 @@ class BaseConfig(BaseModel):
             self.training_config.scheduler,
             optimizer=optimizer
         )
-    
   
     def build_pipe(self):
         return self._build_component(self.dataset_config.pipe, 
@@ -208,10 +189,12 @@ class BaseConfig(BaseModel):
         return self._build_component(self.dataset_config.noise, 
                                      config=self)
     
-
-
-
-
+    def build_simulators(self):
+        return {
+            name: self._build_component(cfg)
+            for name, cfg in self.simulator_config.items()
+        }
+   
 
     # def select_at_index(self, i: int) -> 'BaseConfig':
     #     """

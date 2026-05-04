@@ -11,9 +11,15 @@ class BasePipe:
                                         simulator_config=config.simulator_config)
         
         self.noise_dict = {}
+        self.wlen_obs_dict = {}
         for inst, dict in obs.load_noise().items():
             self.noise_dict[inst]= dict['sigma']
+            self.wlen_obs_dict[inst] = dict['wlen']
+
+        
         self.scale = obs.scale
+
+        self.simulator_dict = self.config.build_simulators()
 
     def _build_param_index(self)-> dict:
         """
@@ -21,20 +27,17 @@ class BasePipe:
         """
         names = self.config.simulator.names
         return {name: i for i, name in enumerate(names)}
+    
+    def _apply_noise(self, x, theta, noise_name, instrument):
+        b_indx = self.param_index[noise_name]
+        b = torch.unsqueeze(theta[:, b_indx], 1)
 
-
-    def _apply_noise(self, x, b, sigma):
-        b = torch.unsqueeze(b, 1)
-        sigma_new = torch.sqrt(torch.Tensor(sigma)**2 + 10**b)
+        sigma_new = torch.sqrt(torch.Tensor(self.noise_dict[instrument])**2 + 10**b)
         error_new = sigma_new * torch.randn_like(x) * self.scale    
         return x + error_new , sigma_new
     
-    def _apply_noise_new(self, x, theta, sigma):
-        b = theta[:, :-1]
-        b = torch.unsqueeze(b, 1)
-        sigma_new = torch.sqrt(torch.Tensor(sigma)**2 + 10**b)
-        error_new = sigma_new * torch.randn_like(x) * self.scale    
-        return x + error_new , sigma_new
+    def _apply_other_noise(self):
+        return NotImplemented
 
     def __call__(self, *batches):
         """

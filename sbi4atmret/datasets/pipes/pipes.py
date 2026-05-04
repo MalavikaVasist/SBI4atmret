@@ -13,6 +13,9 @@ class MiriGeminiHSTPipe(BasePipe):
 
     def _build_mask(self):
         ## Masking gaps in observation
+        wlen_geminisim = self.wlensim_dict["gemini"]
+        
+        obs_wlen_gemini = self.wlen_obs_dict["gemini"]
         obs_wlen_gemini = torch.from_numpy(obs_wlen_gemini)
         mask = torch.zeros(len(wlen_geminisim), dtype=torch.bool)
         for ind in range(len(obs_wlen_gemini)):
@@ -24,20 +27,20 @@ class MiriGeminiHSTPipe(BasePipe):
         cf = batch_dict["cloudfree"]
 
         thetac, xc   = cf["miri"]
-        thetagc, xgc = cf["gemini"]
-        thetahc, xhc = cf["hst"]
+        _, xgc = cf["gemini"]
+        _, xhc = cf["hst"]
+
+        sigmaM = self.noise_dict["miri"]
+        sigmaG = self.noise_dict["gemini"]
+        sigmaH = self.noise_dict["hst"]
 
         ## add noise
-        x, _ = self._apply_noise(x, thetac[:, -1], sigmaM)
-
-        xg, _ = self._apply_noise(xg, thetagc[:,-1], sigmaG)
-        
-        thetahf = torch.flip(thetahc, dims=(0,))
-        xh, _ = self._apply_noise(xh, thetahf[:,-1], sigmaH)
+        xc, _ = self._apply_noise(xc, thetac, sigmaM)
+        xg, _ = self._apply_noise(xg, thetac, sigmaG)
+        xh, _ = self._apply_noise(xh, thetac, sigmaH)
 
         xc  = xc[:, 1:1299]
         xgc = xgc[:, self.mask]
-
 
 
         cf["miri"]   = (thetac, xc)
