@@ -9,6 +9,7 @@ import torch.optim.lr_scheduler as sched
 from ..config.configs import BaseConfig
 from ..torchutils.general import get_cuda_info, to_device
 from ..datasets.DatasetBase import Dataset
+from ..observations.ObservationBase import Observation
 
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
@@ -75,7 +76,23 @@ def setup_training(
     train_keys, train_loaders = dataset.flatten_loaders(dataloaders_dict["train"])
     val_keys, val_loaders = dataset.flatten_loaders(dataloaders_dict["valid"])
 
-    pipe = config.build_pipe()
+    # --- simulator ---
+    simulator_dict = config.build_simulators()
+
+    # --- observation ---
+
+    obs = Observation(
+        observation_config=config.observation_config,
+        dataset_config=config.dataset_config,
+        simulator_config=config.simulator_config,
+            )
+    
+    # --- pipeline
+
+    pipe = config.build_pipe(
+        simulators=simulator_dict,
+        observation=obs,
+    )
 
     # --- prior ---
     logger.info("Building prior...")

@@ -180,9 +180,11 @@ class BaseConfig(BaseModel):
             optimizer=optimizer
         )
   
-    def build_pipe(self):
+    def build_pipe(self, simulator_dict, obs):
         return self._build_component(self.dataset_config.pipe, 
-                                     config=self)
+                                     config=self, 
+                                     simulators=simulator_dict,
+                                    observation=obs)
     
 
     def build_noise(self):

@@ -3,41 +3,86 @@ from sbi4atmret.observations.ObservationBase import Observation
 
 
 class BasePipe:
-    def __init__(self, config):
+    def __init__(self, config, simulators, observation):
         self.config = config
-        self.param_index = self._build_param_index()
-        obs = Observation(observation_config=config.observation_config,
-                                        dataset_config=config.dataset_config,
-                                        simulator_config=config.simulator_config)
+        self.simulators = simulators
+        self.observation = observation
         
-        self.noise_dict = {}
-        self.wlen_obs_dict = {}
-        for inst, dict in obs.load_noise().items():
-            self.noise_dict[inst]= dict['sigma']
-            self.wlen_obs_dict[inst] = dict['wlen']
-
+        self.noise_dict = self._build_obs_noise()
+        self.wlen_obs_dict = self._build_obs_wlens()
         
-        self.scale = obs.scale
+        self.scale = observation.scale
 
-        self.simulator_dict = self.config.build_simulators()
+        self.wlen_sim_dict = self._build_sim_wlens()
+
+        self.parameter_index = self._build_param_index()
+
 
     def _build_param_index(self)-> dict:
         """
         Maps parameter name → column index in theta
         """
-        names = self.config.simulator.names
-        return {name: i for i, name in enumerate(names)}
-    
-    def _apply_noise(self, x, theta, noise_name, instrument):
-        b_indx = self.param_index[noise_name]
-        b = torch.unsqueeze(theta[:, b_indx], 1)
+        param_index = {}
 
-        sigma_new = torch.sqrt(torch.Tensor(self.noise_dict[instrument])**2 + 10**b)
-        error_new = sigma_new * torch.randn_like(x) * self.scale    
-        return x + error_new , sigma_new
+        for simname, simulator in self.simulators.items():
+            names = simulator.names
+            param_index[simname]= {name: i for i, name in enumerate(names)}    
+        
+        return param_index
+
+    def _build_sim_wlens(self):
+        '''
+        returns:
+        wlens = {
+                "cloudfree_miri" : wlen, 
+                "cloudfree_hst": wlen, 
+                "cloudfre_gemini" : wlen, 
+
+                "..": ....
+
+                    }
+        '''
+
+        wlens = {}
+
+        for name, sim in self.simulators.items():
+
+            wlens[name] = sim.wavelength
+
+        return wlens
+
+    def _build_obs_wlens(self):
+        '''
+        returns:
+        wlens = {
+                "miri" : wlen, 
+                "hst": wlen, 
+                "gemini" : wlen, 
+                    }
+        '''
+
+        wlens = {}
+
+        for inst, d in self.observation.load_noise().items():
+            wlens[inst] = d['wlen']
+
+        return wlens
     
-    def _apply_other_noise(self):
-        return NotImplemented
+    def _build_obs_noise(self):
+        '''
+        returns:
+        noise = {
+                "miri" : sigmaM, 
+                "hst": sigmaH, 
+                "gemini" : sigmaG, 
+                    }
+        '''
+        noise = {}
+        for inst, d in self.observation.load_noise().items():
+            noise[inst]= d['sigma']
+        
+        return noise
+
 
     def __call__(self, *batches):
         """
