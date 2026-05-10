@@ -10,6 +10,7 @@ from ..config.configs import BaseConfig
 from ..torchutils.general import get_cuda_info, to_device
 from ..datasets.DatasetBase import Dataset
 from ..observations.ObservationBase import Observation
+from ..domain.builders import build_domain_context
 
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
@@ -86,13 +87,19 @@ def setup_training(
         dataset_config=config.dataset_config,
         simulator_config=config.simulator_config,
             )
-    
+
+    # --- domain context ---
+    domain = build_domain_context(
+                    simulators=simulator_dict,
+                    observation=obs,
+                )
+                    
     # --- pipeline
 
-    pipe = config.build_pipe(
-        simulators=simulator_dict,
-        observation=obs,
-    )
+    pipe = config.build_pipe(domain = domain)
+
+    # --- noise
+    noise = config.build_noise(domain = domain)
 
     # --- prior ---
     logger.info("Building prior...")
@@ -129,7 +136,8 @@ def setup_training(
         device=device,
         train_lists = (train_keys, train_loaders), 
         val_lists = (val_keys, val_loaders), 
-        pipe = pipe
+        pipe = pipe,
+        noise = noise
     )
 
 

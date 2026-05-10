@@ -119,6 +119,7 @@ class Trainer:
         self.train_keys, self.train_loaders = context.train_lists 
         self.val_keys, self.val_loaders = context.val_lists 
         self.pipe = context.pipe
+        self.noise = context.noise
 
         self.device = context.device
 
@@ -180,9 +181,9 @@ class Trainer:
         for batches in islice(zip(*self.train_loaders), self.config.training_config.gradient_steps_train):
                 
                 batch_dict = self.dataset.reconstruct_batch(self.train_keys, batches)
-                batch_dict = self.pipe(batch_dict) #modifications- scaling and masking spec, prior expansion
-                noisy_batch_dict = self.noise(batch_dict)
-                theta, x = self.build_input(noisy_batch_dict)
+                processed_batch = self.pipe(batch_dict) #modifications- scaling and masking spec, prior expansion
+                noisy_batch_dict = self.noise(processed_batch)
+                theta, x = self.pipe.build_input(noisy_batch_dict)
 
 
                 theta, x  = self._to_device(theta), self._to_device(x)

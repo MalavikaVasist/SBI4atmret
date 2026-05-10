@@ -1,88 +1,10 @@
 import torch
-from sbi4atmret.observations.ObservationBase import Observation
 
 
 class BasePipe:
-    def __init__(self, config, simulators, observation):
+    def __init__(self, config, domain):
         self.config = config
-        self.simulators = simulators
-        self.observation = observation
-        
-        self.noise_dict = self._build_obs_noise()
-        self.wlen_obs_dict = self._build_obs_wlens()
-        
-        self.scale = observation.scale
-
-        self.wlen_sim_dict = self._build_sim_wlens()
-
-        self.parameter_index = self._build_param_index()
-
-
-    def _build_param_index(self)-> dict:
-        """
-        Maps parameter name → column index in theta
-        """
-        param_index = {}
-
-        for simname, simulator in self.simulators.items():
-            names = simulator.names
-            param_index[simname]= {name: i for i, name in enumerate(names)}    
-        
-        return param_index
-
-    def _build_sim_wlens(self):
-        '''
-        returns:
-        wlens = {
-                "cloudfree_miri" : wlen, 
-                "cloudfree_hst": wlen, 
-                "cloudfre_gemini" : wlen, 
-
-                "..": ....
-
-                    }
-        '''
-
-        wlens = {}
-
-        for name, sim in self.simulators.items():
-
-            wlens[name] = sim.wavelength
-
-        return wlens
-
-    def _build_obs_wlens(self):
-        '''
-        returns:
-        wlens = {
-                "miri" : wlen, 
-                "hst": wlen, 
-                "gemini" : wlen, 
-                    }
-        '''
-
-        wlens = {}
-
-        for inst, d in self.observation.load_noise().items():
-            wlens[inst] = d['wlen']
-
-        return wlens
-    
-    def _build_obs_noise(self):
-        '''
-        returns:
-        noise = {
-                "miri" : sigmaM, 
-                "hst": sigmaH, 
-                "gemini" : sigmaG, 
-                    }
-        '''
-        noise = {}
-        for inst, d in self.observation.load_noise().items():
-            noise[inst]= d['sigma']
-        
-        return noise
-
+        self.domain = domain 
 
     def __call__(self, *batches):
         """
@@ -95,6 +17,12 @@ class BasePipe:
 
     def _build_mask(self):
         return NotImplementedError
+
+    @property
+    def param_index(self):
+        return self.domain.param_index
+
+    
     
 
 

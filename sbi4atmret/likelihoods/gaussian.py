@@ -1,45 +1,39 @@
 import torch
 from NoiseBase import BaseNoise
 from torch import Tensor
-from ..datasets.pipes.PipeBase import BasePipe
 
 class GaussianNoise(BaseNoise):
     
     def __init__(self, config):
         super().__init__(config)
 
+    
+    def gaussian_noise(self, sigma, x):
+        error = sigma * torch.randn_like(x) * self.domain.scale  
+        return error  
 
 
-    def forward(theta, x)-> Tensor:
+    def _apply_noise(self, theta, x, instrument, simname):
+        noise_name = "b_" + instrument 
+        b_indx = self.domain.param_index[simname][noise_name]
+        b = torch.unsqueeze(theta[:, b_indx], 1)
 
-        ## add noise
-
-        x, _ = self._apply_noise(xc, thetac, 'miri')
-        xg, _ = self._apply_noise(xg, thetac, 'gemini')
-        xh, _ = self._apply_noise(xh, thetac, 'hst')
-
-        xc, _ = self._apply_noise(xc, thetac, 'miri')
-        xgc, _ = self._apply_noise(xgc, thetac, 'gemini')
-        xhc, _ = self._apply_noise(xhc, thetac, 'hst')
-
+        sigma_new = self.flattening_likelihood(instrument, b)
+        error = self.gaussian_noise(sigma_new, x)
         
-        x, _ = self.noisybfactor(x, b, sigmaM)
+        return theta, x + error
 
-        xg, _ = noisybfactor(xg, thetag[:,-1], sigmaG)
-        
-        thetahf = torch.flip(thetah, dims=(0,))
-        xh, _ = noisybfactor(xh, thetahf[:,-1], sigmaH)
-        
-        xinst = torch.hstack((xh, xg))[:,index_argsort]
-        x = torch.hstack((xinst, x))
 
-        #######return batch-dict
-        
-        thetag = torch.hstack((thetag[:,:-3], thetag[:,-1:]))  #removing the c and scaling 
+    def forward(self, batch_dict):
 
-        b = torch.unsqueeze(b,1)
-        bCh = torch.unsqueeze(thetahf[:,-1],1)
-        theta = torch.hstack((thetag, bCh, b))
-        
-        return theta, x
+        noisy_batch_dict = {}
+        for atm in batch_dict.keys():
+            for inst in batch_dict[atm].keys():
+                theta, x = batch_dict[atm][inst]
+                _, x_noisy= self._apply_noise(theta, x, inst, str(atm)+ '_' +str(inst))
+                noisy_batch_dict[atm][inst] = theta, x_noisy
+
+        return noisy_batch_dict
+
+    
     

@@ -13,8 +13,8 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
 
     def _build_mask(self):
         ## Masking gaps in observation
-        wlen_geminisim = self.wlen_sim_dict["cloudfree_gemini"]
-        obs_wlen_gemini = self.wlen_obs_dict["gemini"]
+        wlen_geminisim = self.domain.sim_wlens["cloudfree_gemini"]
+        obs_wlen_gemini = self.domain.obs_wlens["gemini"]
         obs_wlen_gemini = torch.from_numpy(obs_wlen_gemini)
         mask = torch.zeros(len(wlen_geminisim), dtype=torch.bool)
         for ind in range(len(obs_wlen_gemini)):
@@ -43,8 +43,8 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
         thetah, xh = cf["hst"]
 
 
-        idxg = self.param_index["cloudfree_gemini"]["Mike_Line_b_Cushing_g"]
-        idxh = self.param_index["cloudfree_hst"]["Mike_Line_b_Cushing_h"]
+        idxg = self.domain.param_index["cloudfree_gemini"]["Mike_Line_b_Cushing_g"]
+        idxh = self.domain.param_index["cloudfree_hst"]["Mike_Line_b_Cushing_h"]
 
         thetag[:, idxg] = transform_uniform(
             thetag[:, idxg], -17, -11, -15, -7
@@ -52,26 +52,39 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
         thetah[:, idxh] = transform_uniform(
             thetah[:, idxh], -17, -11, -15, -7
         )
+        
+        ## flipping to get diff bfactor
+        thetahf = torch.flip(thetah, dims=(0,))
 
         cf["gemini"]   = (thetag, xg)
-        cf["hst"] = (thetah, xh)
+        cf["hst"] = (thetahf, xh)
 
         return batch_dict
         
 
     def build_input(self, batch_dict):
+
         cf = batch_dict["cloudfree"]
 
-        thetac, xc   = cf["miri"]
-        _, xgc       = cf["gemini"]
-        _, xhc       = cf["hst"]
+        theta, x   = cf["miri"]
+        thetag, xg = cf["gemini"]
+        thetah, xh = cf["hst"]
 
-        theta = thetac
-        x = torch.cat([xc, xgc, xhc], dim=-1)
+        xinst = torch.hstack((xh, xg))[:,self.domain.unsort_index]
+        x = torch.hstack((xinst, x))
+
+        idx_c = self.domain.parameter_idx["cloudfree_gemini"]["Cushing_scale_factor"]
+        idx_scalingg =  self.domain.parameter_idx["cloudfree_gemini"]["scaling"]
+        thetag = torch.hstack((thetag[:,:idx_c], thetag[:,idx_scalingg:]))  #removing the c and scaling 
+
+        idx_scalingh =  self.domain.parameter_idx["cloudfree_hst"]["scaling"]
+        b = torch.unsqueeze(b,1)
+        bCh = torch.unsqueeze(thetah[:,idx_scalingh],1)
+
+        theta = torch.hstack((thetag, bCh, b))
+        x = torch.cat([x, xg, xh], dim=-1)
 
         return theta, x
-    
-
 
     def forward(self, batch_dict: dict):
 
@@ -81,7 +94,7 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
         return batch_dict 
     
 
-
+    
 
 
 
