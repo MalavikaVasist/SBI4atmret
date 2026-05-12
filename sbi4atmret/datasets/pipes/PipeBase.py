@@ -5,22 +5,45 @@ class BasePipe:
     def __init__(self, config, domain):
         self.config = config
         self.domain = domain 
+        self._mask = self._build_mask()
+        
+    def _build_mask(self):
+        ## Masking gaps in observation
+        wlen_geminisim = self.domain.sim_wlens["cloudfree_gemini"]
+        obs_wlen_gemini = self.domain.obs_wlens["gemini"]
+        obs_wlen_gemini = torch.from_numpy(obs_wlen_gemini)
+        mask = torch.zeros(len(wlen_geminisim), dtype=torch.bool)
+        for ind in range(len(obs_wlen_gemini)):
+            mask = mask + torch.isin(torch.from_numpy(wlen_geminisim), obs_wlen_gemini[ind].item())
+        
+        return mask
+
+    @property
+    def param_index(self):
+        return self.domain.param_index
 
     def __call__(self, *batches):
         """
         batches = [(theta1, x1), (theta2, x2), ...]
         """
         return self.forward(*batches)
+    
+    def modify_spec(self, batch_dict):
+        return NotImplementedError
+    
 
-    def forward(self, *batches):
-        raise NotImplementedError
-
-    def _build_mask(self):
+    def modify_theta(self, batch_dict):
         return NotImplementedError
 
-    @property
-    def param_index(self):
-        return self.domain.param_index
+
+    def forward(self, batch_dict: dict):
+
+        batch_dict = self.modify_spec(batch_dict)
+        batch_dict = self.modify_theta(batch_dict)
+
+        return batch_dict 
+
+
 
     
     
