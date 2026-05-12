@@ -32,17 +32,26 @@ Examples:
         '-c',
         type=str,
         default='experiments',
-        help='Directory containing config.yaml file (default: experiments)',
+        help='',
+    )
+    
+    parser.add_argument(
+    '--checkpoint-path',
+    '-c',
+    type=str,
+    default='experiments/model1',
+    help='config_model1.yaml file (default: config_model1.yaml)',
     )
 
     parser.add_argument(
-        '--checkpoint-dir',
-        '-c',
-        type=str,
-        default='experiments',
-        help='Directory containing config.yaml file (default: experiments)',
+    '--resume',
+    '-c',
+    type=str,
+    default='False',
+    help='',
     )
-    
+
+
     return parser.parse_args()
 
 

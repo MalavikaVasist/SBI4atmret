@@ -8,11 +8,12 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 from sbi4atmret.config.configs import BaseConfig
-from sbi4atmret.models.base import Base
-from sbi4atmret.Train.args import parse_args, get_config_path
+from sbi4atmret.training.args import parse_args, get_config_path
 from sbi4atmret.simulators.simulator import build_simulator
-from scripts.data import load_observations_data, load_datasets
-from sbi4atmret.Train.setup_training import run_training
+from sbi4atmret.datasets.DatasetBase import Dataset
+from sbi4atmret.training import setup_training
+from sbi4atmret.training.train_validate import Trainer
+from sbi4atmret.models.ModelBase import BaseModel
 
 from dawgz import job, schedule
 
@@ -39,8 +40,6 @@ try:
 except ValidationError as exc:
     raise RuntimeError(f"Configuration validation failed: {exc}") from exc
 
-# Build a Base helper
-base = BaseConfig(config)
 
 '''
 from args see what to do plot or train 
@@ -53,17 +52,22 @@ if args.action == 'train':
     if train see if i'm resuming or starting from scratch
     load model and dataset depending on whether I'm resuming or starting from scratch
     '''
-    checkpoint_file_path = args.config_dir / args.checkpoint_name
-    print("Checkpoint found, resuming training!", flush=True)
     
-    config = load_config()
-
     model = BaseModel(config)
     model.build()
 
-    dataset = Dataset(config.dataset_config)
+    dataset = Dataset(config)
 
-    ctx = setup_training(config, model, dataset)
+    checkpoint_file_path = None
+    if args.checkpoint_path: 
+        print("Checkpoint found, resuming training!", flush=True)
+        checkpoint_file_path = Path(args.checkpoint_path)
+
+    ctx = setup_training(config = config, 
+                        model = model, 
+                        dataset = dataset, 
+                        checkpoint_path = checkpoint_file_path, 
+                        device = "cuda")
 
     trainer = Trainer(
         model=model,
@@ -71,14 +75,8 @@ if args.action == 'train':
         config=config,
     )
 
-    trainer.train(resume_from=ctx.checkpoint_path)
+    trainer.train(resume = args.resume)
 
-
-    print("No checkpoint found, starting new training!", flush=True)
-    model, dataset = load_model_dataset_new (
-        experiment_dir=args.config_dir,
-        config=config,
-    )
     print()
 
 
@@ -87,8 +85,6 @@ if args.action == 'train':
     train model until time limit is reached or early stopping or full
     if completed, end the job
     '''
-
-    some wrapper(model.train(dataset))
 
 
 if args.action == 'plot':

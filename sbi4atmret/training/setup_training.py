@@ -119,7 +119,6 @@ def setup_training(
 
     # --- validating checkpoint path ---
     if checkpoint_path:
-        checkpoint_path = Path(checkpoint_path)
         if checkpoint_path.exists():
             logger.info(f"Checkpoint found: {checkpoint_path}")
         else:

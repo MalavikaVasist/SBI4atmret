@@ -1,102 +1,4 @@
 import time
-from sbi4atmret.Train import args
-from sbi4atmret.Train.train import load_model_dataset_resume
-import torch
-import torch.optim.lr_scheduler as sched
-import wandb
-from pathlib import Path
-from tqdm import tqdm
-from itertools import islice
-from typing import Any, Mapping
-
-from lampe.utils import GDStep
-from zuko.distributions import BoxUniform
-
-from ..models.base import (
-    setup_estimator,
-    setup_optimizer_and_scheduler,
-    setup_loss_and_prior,
-    setup_pipe,
-)
-from scripts.plotting import plot_results
-
-
-'''
-here you call the loaded estimator/model inside one training epoch. 
-the training loop goes like this :
-    - call the laoded estimator/model from the load_estimator
-    - compute the dataset via the pipe 
-    - compute the loss and backpropagate
-    - return the loss and the time taken for the epoch.
-'''
-
-def execute_training(model:"Base", dataset):
-    # Check if checkpoint file exists
-    training_config = model.config.training
-    model.run_training()
-    print()
-
-
-def train_epoch(estimator, step, trainsets, simulator, pipe, config: Mapping[str, Any]):
-    estimator.train()
-    start = time.time()
-
-
-    loss_train_list = []
-    for data_tuple in islice(zip(*trainsets), config["training"]["gradient_steps_train"]):
-        sim_models = {}
-        idx = 0
-        for atm_type in config['simulator']["type"]:
-            sim_models[atm_type] = {}
-            for instrument in config['instruments']:
-                sim_models[atm_type][instrument] = data_tuple[idx]
-                idx += 1
-        # Assuming the last type and instrument for pipe
-        atm_type = config['simulator']["type"][0]
-        instrument = config['instruments'][0]
-        output = pipe(sim_models, simulator[atm_type][instrument])
-        loss_train = step(output)
-        loss_train_list.append(loss_train)
-    losses_train = torch.stack(loss_train_list).cpu().numpy()
-    end = time.time()
-    return losses_train, end - start
-
-
-def validate_epoch(estimator, validsets, simulator, pipe, step, config: Mapping[str, Any]):
-    estimator.eval()
-    loss_valid_list = []
-    with torch.no_grad():
-        for data_tuple in islice(zip(*validsets), config["training"]["gradient_steps_valid"]):
-            sim_models = {}
-            idx = 0
-            for atm_type in config['simulator']["type"]:
-                sim_models[atm_type] = {}
-                for instrument in config['instruments']:
-                    sim_models[atm_type][instrument] = data_tuple[idx]
-                    idx += 1
-            atm_type = config['simulator']["type"][0]
-            instrument = config['instruments'][0]
-            output = pipe(sim_models, simulator[atm_type][instrument])
-            loss_valid = step(output)
-            loss_valid_list.append(loss_valid)
-    losses_val = torch.stack(loss_valid_list).cpu().numpy()
-    return losses_val
-
-
-def log_to_wandb(run, lr, loss_train, loss_val, nans, nans_val, speed, train_len, val_len):
-    run.log({
-        'lr': lr,
-        'loss': loss_train,
-        'loss_val': loss_val,
-        'nans': nans,
-        'nans_val': nans_val,
-        'speed': speed,
-        'trainigset_len': train_len,
-        'validationset_len': val_len,
-    })
-
-
-
 
 import torch
 import wandb
@@ -128,31 +30,39 @@ class Trainer:
         if self.ctx.prior is not None:
             self.ctx.prior = self.ctx.prior.to(self.device)
 
+
     # ------------------------
     # PUBLIC API
     # ------------------------
-    def train(self, resume_from=None):
+    def train(self, resume =False):
 
-        checkpoint_path = resume_from or self.ctx.checkpoint_path
+        start_epoch = self.config.training_config.epoch_start
+        checkpoint_path = self.ctx.checkpoint_path
 
         # --- resume ---
-        if checkpoint_path:
-            self.model.load_from_checkpoint(checkpoint_path)
+        if resume:
+            if checkpoint_path is None:
+                raise ValueError(
+                    "resume=True but no checkpoint provided"
+                )
+
+            start_epoch = (
+                self.load_checkpoint(checkpoint_path) + 1
+            )
 
         # --- wandb ---
         wandb_cfg = self.config.wandb_config
         self.run = wandb.init(
             project=wandb_cfg.project,
-            name=wandb_cfg.title,
+            name=wandb_cfg.title, #model_name
             config=self.config.model_dump()
         )
 
         # --- save path ---
-        savepath = Path(self.config.dataset_config.savepath)
-        self.runpath = savepath / self.run.name
-        self.runpath.mkdir(parents=True, exist_ok=True)
+        output_dir = Path(self.config.trainer_config.output_dir) ##alan
+        self.run_dir = output_dir / self.run.name  ##alan/model_name
+        self.run_dir.mkdir(parents=True, exist_ok=True)
 
-        start_epoch = self.config.training_config.epoch_start
         end_epoch = self.config.training_config.epoch_final
 
         for epoch in tqdm(range(start_epoch, end_epoch), unit="epoch"):
@@ -168,7 +78,7 @@ class Trainer:
 
         self.run.finish()
 
-        return self.net, self.runpath
+        return self.net, self.run_dir
 
     # ------------------------
     # CORE METHODS
@@ -184,21 +94,17 @@ class Trainer:
                 processed_batch = self.pipe(batch_dict) #modifications- scaling and masking spec, prior expansion
                 noisy_batch_dict = self.noise(processed_batch)
                 theta, x = self.pipe.build_input(noisy_batch_dict)
-
-
                 theta, x  = self._to_device(theta), self._to_device(x)
 
                 self.optimizer.zero_grad()
-
-                loss = self.compute_loss(batch)
-
+                loss = self.loss_fn(theta, x)
                 loss.backward()
 
                 # gradient clipping
                 clip = self.config.training_config.clip_grad_norm
                 if clip:
                     torch.nn.utils.clip_grad_norm_(self.net.parameters(), clip)
-
+                    
                 self.optimizer.step()
 
                 losses.append(loss.detach())
@@ -236,7 +142,7 @@ class Trainer:
 
     def step_scheduler(self, train_loss, val_loss):
         if self.scheduler is None:
-            return
+            return 
 
         try:
             # e.g. ReduceLROnPlateau
@@ -260,8 +166,8 @@ class Trainer:
         interval = self.config.training_config.checkpoint_interval or 100
 
         if epoch > 0 and epoch % interval == 0:
-            path = self.runpath / f"checkpoint_{epoch}.pt"
-            self.model.save_model(path)
+            path = self.run_dir / f"checkpoint_{epoch}.pt"
+            self.save_checkpoint(path, epoch)
 
     def _to_device(self, batch):
         if isinstance(batch, (list, tuple)):
@@ -269,3 +175,59 @@ class Trainer:
         if isinstance(batch, dict):
             return {k: v.to(self.device) for k, v in batch.items()}
         return batch.to(self.device)
+    
+
+    def load_checkpoint(self, path: str):
+
+        checkpoint = torch.load(path, 
+                                map_location = self.device)
+
+        self.net.load_state_dict(
+            checkpoint['estimator_state_dict']
+        )
+
+        if (
+            self.optimizer
+            and checkpoint.get('optimizer_state_dict')
+        ):
+            self.optimizer.load_state_dict(
+                checkpoint['optimizer_state_dict']
+            )
+
+        if (
+            self.scheduler
+            and checkpoint.get('scheduler_state_dict')
+        ):
+            self.scheduler.load_state_dict(
+                checkpoint['scheduler_state_dict']
+            )
+
+        return checkpoint.get("epoch", 0)
+
+
+    def save_checkpoint(self, path: str, epoch: int):
+        checkpoint = {
+        'epoch': epoch,
+
+        'estimator_state_dict':
+            self.net.state_dict(),
+
+        'optimizer_state_dict':
+            self.optimizer.state_dict()
+            if self.optimizer else None,
+
+        'scheduler_state_dict':
+            self.scheduler.state_dict()
+            if self.scheduler else None,
+        }
+
+        torch.save(checkpoint, path)
+
+    '''
+    TO DO :
+
+    1. fix valid_one_epoch
+    2. fix run.log to include nans and nas_val
+    3. do the plot class 
+    
+    '''

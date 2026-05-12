@@ -36,7 +36,6 @@ class DatasetConfig(BaseModel):
     shuffle: bool
     order: List[str]
     dataset_path: dict[str, dict[str, InstrumentPath]]  # condition → instrument → path
-    savepath: str
     pipe: ComponentConfig
     noise: ComponentConfig
 
@@ -72,6 +71,7 @@ class TrainingConfig(BaseModel):
     checkpoint_interval: Optional[int] = None
     name: str
     device: str
+    output_dir: str
 
 
 class WandbConfig(BaseModel):

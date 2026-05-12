@@ -36,7 +36,6 @@ dataset:
         path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/GEMINI/cloudfree/
       hst:
         path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudfree/
-  savepath: JWST/runs/WISEJ1738/model_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI+HST+Gemini/cloudfree/
   pipe:
     type: pipes.pipe_HST_Gemini_MIRI_cloudfree.MiriGeminiHSTPipe
     kwargs: {}
@@ -604,6 +603,9 @@ training:
   stop_criterion: late_lr
   name: 1
   device: cpu
+  checkpoint_interval: 100
+  output_dir: JWST/runs/WISEJ1738/model_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI+HST+Gemini/cloudfree/
+
 
 
 wandb:
