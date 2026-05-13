@@ -134,7 +134,7 @@ def setup_training(
         checkpoint_path=str(checkpoint_path) if checkpoint_path else None,
         device=device,
         train_lists = (train_keys, train_loaders), 
-        val_lists = (val_keys, val_loaders), 
+        valid_lists = (valid_keys, valid_loaders), 
         pipe = pipe,
         noise = noise
     )

@@ -80,8 +80,7 @@ if args.action == 'train':
     print()
 
 
-    '''
-    
+    '''    
     train model until time limit is reached or early stopping or full
     if completed, end the job
     '''
@@ -90,6 +89,30 @@ if args.action == 'train':
 if args.action == 'plot':
     print("Plotting results!", flush=True)
     plot_results(args.experiment_dir, config)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
 
 scratch = os.environ.get(config.paths['scratch_env'] if config.paths else '')
 home = os.environ.get(config.paths['home_env'] if config.paths else '')

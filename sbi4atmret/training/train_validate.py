@@ -4,6 +4,7 @@ import torch
 import wandb
 from tqdm import tqdm
 from pathlib import Path
+import islice
 
 
 class Trainer:
@@ -19,7 +20,7 @@ class Trainer:
         self.loss_fn = context.loss_fn
 
         self.train_keys, self.train_loaders = context.train_lists 
-        self.val_keys, self.val_loaders = context.val_lists 
+        self.valid_keys, self.valid_loaders = context.valid_lists 
         self.pipe = context.pipe
         self.noise = context.noise
 
@@ -66,13 +67,15 @@ class Trainer:
         end_epoch = self.config.training_config.epoch_final
 
         for epoch in tqdm(range(start_epoch, end_epoch), unit="epoch"):
-
-            train_loss = self.train_one_epoch(epoch)
-            val_loss = self.validate_one_epoch(epoch)
+            
+            start = time.time()
+            train_loss = self.train_one_epoch()
+            end = time.time()
+            val_loss = self.validate_one_epoch()
 
             self.step_scheduler(train_loss, val_loss)
 
-            self.log(epoch, train_loss, val_loss)
+            self.log(epoch, train_loss, val_loss, end-start)
 
             self.maybe_checkpoint(epoch)
 
@@ -83,7 +86,7 @@ class Trainer:
     # ------------------------
     # CORE METHODS
     # ------------------------
-    def train_one_epoch(self, epoch):
+    def train_one_epoch(self):
         self.net.train()
 
         losses = []
@@ -109,25 +112,26 @@ class Trainer:
 
                 losses.append(loss.detach())
 
-        return torch.nanmean(torch.stack(losses))
+        return torch.stack(losses)
 
-    def validate_one_epoch(self, epoch):
-        if not self.val_loaders:
-            return None
+    def validate_one_epoch(self):
 
         self.net.eval()
+
         losses = []
 
-        with torch.no_grad():
-            for loader in self.val_loaders:
-                for batch in loader:
+        for batches in islice(zip(*self.valid_loaders), self.config.training_config.gradient_steps_valid):
+                
+                batch_dict = self.dataset.reconstruct_batch(self.valid_keys, batches)
+                processed_batch = self.pipe(batch_dict) #modifications- scaling and masking spec, prior expansion
+                noisy_batch_dict = self.noise(processed_batch)
+                theta, x = self.pipe.build_input(noisy_batch_dict)
+                theta, x  = self._to_device(theta), self._to_device(x)
 
-                    batch = self._to_device(batch)
+                loss = self.loss_fn(theta, x)
+                losses.append(loss.detach())
 
-                    loss = self.compute_loss(batch)
-                    losses.append(loss)
-
-        return torch.nanmean(torch.stack(losses))
+        return torch.stack(losses)
 
     # ------------------------
     # UTILITIES
@@ -150,11 +154,17 @@ class Trainer:
         except TypeError:
             self.scheduler.step()
 
-    def log(self, epoch, train_loss, val_loss):
+    def log(self, epoch, train_loss, val_loss, epoch_time):
         log_dict = {
             "epoch": epoch,
-            "train_loss": train_loss.item(),
+            "train_loss": torch.nanmean(train_loss),
+            "valid_loss": torch.nanmean(val_loss),  
             "lr": self.optimizer.param_groups[0]["lr"],
+            "epoch_time": epoch_time, 
+            'nans': torch.isnan(train_loss).float().mean(),  #percentage of NaNs
+            'nans_val': torch.isnan(val_loss).float().mean(),
+            'trainigset_len' :  len(train_loss),
+            'validationset_len' : len(val_loss),
         }
 
         if val_loss is not None:
@@ -223,11 +233,3 @@ class Trainer:
 
         torch.save(checkpoint, path)
 
-    '''
-    TO DO :
-
-    1. fix valid_one_epoch
-    2. fix run.log to include nans and nas_val
-    3. do the plot class 
-    
-    '''
