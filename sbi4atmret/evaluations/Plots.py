@@ -65,9 +65,6 @@ class plots():
         # log_p_cf10 = log_p_cf10.cpu()
         # index_cf10 = np.where(log_p_cf10 == max(log_p_cf10))[0]
 
-
-
-
         self.x_star = x_star
 
 

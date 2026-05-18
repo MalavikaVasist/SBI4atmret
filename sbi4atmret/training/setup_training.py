@@ -75,7 +75,7 @@ def setup_training(
     dataloaders_dict = dataset.return_dataloaders_dict()
 
     train_keys, train_loaders = dataset.flatten_loaders(dataloaders_dict["train"])
-    val_keys, val_loaders = dataset.flatten_loaders(dataloaders_dict["valid"])
+    valid_keys, valid_loaders = dataset.flatten_loaders(dataloaders_dict["valid"])
 
     # --- simulator ---
     simulator_dict = config.build_simulators()

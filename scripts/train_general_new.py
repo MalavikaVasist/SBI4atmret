@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+from sbi4atmret.evaluations import EvaluateBase
 from scripts.plotting import plot_results
 import torch
 from pathlib import Path
@@ -14,6 +15,7 @@ from sbi4atmret.datasets.DatasetBase import Dataset
 from sbi4atmret.training import setup_training
 from sbi4atmret.training.train_validate import Trainer
 from sbi4atmret.models.ModelBase import BaseModel
+from sbi4atmret.evaluations.EvaluateBase import BaseEvaluator
 
 from dawgz import job, schedule
 
@@ -46,6 +48,16 @@ from args see what to do plot or train
 
 '''
 
+model = BaseModel(config)
+model.build()
+
+dataset = Dataset(config)
+
+checkpoint_file_path = None
+if args.checkpoint_path: 
+    print("Checkpoint found, resuming training!", flush=True)
+    checkpoint_file_path = Path(args.checkpoint_path)
+
 if args.action == 'train':
 
     '''
@@ -53,16 +65,6 @@ if args.action == 'train':
     load model and dataset depending on whether I'm resuming or starting from scratch
     '''
     
-    model = BaseModel(config)
-    model.build()
-
-    dataset = Dataset(config)
-
-    checkpoint_file_path = None
-    if args.checkpoint_path: 
-        print("Checkpoint found, resuming training!", flush=True)
-        checkpoint_file_path = Path(args.checkpoint_path)
-
     ctx = setup_training(config = config, 
                         model = model, 
                         dataset = dataset, 
@@ -80,22 +82,19 @@ if args.action == 'train':
     print()
 
 
-    '''    
-    train model until time limit is reached or early stopping or full
-    if completed, end the job
-    '''
+if args.action == "evaluate":
+    print("Plotting and saving results!", flush=True)
 
 
-if args.action == 'plot':
-    print("Plotting results!", flush=True)
-    plot_results(args.experiment_dir, config)
+    evaluator = BaseEvaluator(
+        model=model,
+        dataset=dataset,
+        config=config,
+        checkpoint_path=args.checkpoint_path,
+        device="cuda",
+    )
 
-
-
-
-
-
-
+    evaluator.run_all()
 
 
 
@@ -112,7 +111,14 @@ if args.action == 'plot':
 
 
 
-    
+
+
+
+
+
+
+
+
 
 scratch = os.environ.get(config.paths['scratch_env'] if config.paths else '')
 home = os.environ.get(config.paths['home_env'] if config.paths else '')

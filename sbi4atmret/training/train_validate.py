@@ -1,5 +1,8 @@
 import time
 
+import yaml
+
+from sbi4atmret.utils.checkpoint import load_checkpoint, load_model_state, save_checkpoint
 import torch
 import wandb
 from tqdm import tqdm
@@ -48,7 +51,7 @@ class Trainer:
                 )
 
             start_epoch = (
-                self.load_checkpoint(checkpoint_path) + 1
+                self.loading_checkpoint(checkpoint_path) + 1
             )
 
         # --- wandb ---
@@ -60,9 +63,20 @@ class Trainer:
         )
 
         # --- save path ---
-        output_dir = Path(self.config.trainer_config.output_dir) ##alan
-        self.run_dir = output_dir / self.run.name  ##alan/model_name
+        output_dir = Path(self.config.trainer_config.output_dir) ##runs
+        self.run_dir = output_dir / self.run.name  ##runs/model_name
         self.run_dir.mkdir(parents=True, exist_ok=True)
+
+        ## save the config in runs/model_name/config.yaml
+        with open(self.run_dir / "config.yaml", "w") as f:
+            yaml.safe_dump(
+                self.config.model_dump(mode= "json"),
+                f,
+                sort_keys=False,
+            )
+        
+        self.checkpoint_dir = self.run_dir / "checkpoints" ##runs/model_name/checkpoints
+        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
         end_epoch = self.config.training_config.epoch_final
 
@@ -77,11 +91,17 @@ class Trainer:
 
             self.log(epoch, train_loss, val_loss, end-start)
 
-            self.maybe_checkpoint(epoch)
+            self.maybe_checkpoint(epoch)        
+            
+            if self.config.training_config.stop_criterion == 'early_lr': 
+                if self.optimizer.param_groups[0]['lr'] <= self.scheduler.min_lrs[0]:
+                    break
+        
+        save_checkpoint(self.checkpoint_dir / "latest.pt", self.net, self.optimizer, self.scheduler, epoch)
 
         self.run.finish()
 
-        return self.net, self.run_dir
+        return self.net, self.checkpoint_dir
 
     # ------------------------
     # CORE METHODS
@@ -165,19 +185,19 @@ class Trainer:
             'nans_val': torch.isnan(val_loss).float().mean(),
             'trainigset_len' :  len(train_loss),
             'validationset_len' : len(val_loss),
+            "config": self.config.model_dump(),
+
         }
 
-        if val_loss is not None:
-            log_dict["val_loss"] = val_loss.item()
-
-        wandb.log(log_dict)
+        self.run.log(log_dict)
 
     def maybe_checkpoint(self, epoch):
         interval = self.config.training_config.checkpoint_interval or 100
 
         if epoch > 0 and epoch % interval == 0:
-            path = self.run_dir / f"checkpoint_{epoch}.pt"
-            self.save_checkpoint(path, epoch)
+            path = self.checkpoint_dir / f"checkpoint_{epoch}.pt"
+
+            save_checkpoint(path, self.net, self.optimizer, self.scheduler, epoch)
 
     def _to_device(self, batch):
         if isinstance(batch, (list, tuple)):
@@ -187,49 +207,20 @@ class Trainer:
         return batch.to(self.device)
     
 
-    def load_checkpoint(self, path: str):
+    def loading_checkpoint(self, path: str):
 
-        checkpoint = torch.load(path, 
-                                map_location = self.device)
+        checkpoint = load_checkpoint(path, self.device)
+        load_model_state(self.net, checkpoint)
 
-        self.net.load_state_dict(
-            checkpoint['estimator_state_dict']
-        )
+        if self.optimizer and checkpoint.get("optimizer_state_dict"):
+            self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
 
-        if (
-            self.optimizer
-            and checkpoint.get('optimizer_state_dict')
-        ):
-            self.optimizer.load_state_dict(
-                checkpoint['optimizer_state_dict']
-            )
-
-        if (
-            self.scheduler
-            and checkpoint.get('scheduler_state_dict')
-        ):
-            self.scheduler.load_state_dict(
-                checkpoint['scheduler_state_dict']
-            )
+        if self.scheduler and checkpoint.get("scheduler_state_dict"):
+            self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
 
         return checkpoint.get("epoch", 0)
 
 
-    def save_checkpoint(self, path: str, epoch: int):
-        checkpoint = {
-        'epoch': epoch,
 
-        'estimator_state_dict':
-            self.net.state_dict(),
 
-        'optimizer_state_dict':
-            self.optimizer.state_dict()
-            if self.optimizer else None,
-
-        'scheduler_state_dict':
-            self.scheduler.state_dict()
-            if self.scheduler else None,
-        }
-
-        torch.save(checkpoint, path)
 
