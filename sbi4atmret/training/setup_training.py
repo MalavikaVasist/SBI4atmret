@@ -36,11 +36,6 @@ class TrainingContext:
     train_lists: Any
     valid_lists: Any
 
-    # bookkeeping
-    checkpoint_path: Optional[str]
-    device: str
-
-
 def setup_training(
     config: Union[dict, BaseConfig],
     model,
@@ -55,7 +50,6 @@ def setup_training(
     # --- setup runtime context ---
     runtime = setup_runtime(
         config=config,
-        dataset=dataset,
         checkpoint_path=checkpoint_path,
         device=device,
     )
@@ -71,8 +65,10 @@ def setup_training(
     logger.info("=" * 60)
 
     # --- dataset ---
-    train_keys, train_loaders = dataset.flatten_loaders(runtime.dataloaders_dict["train"])
-    valid_keys, valid_loaders = dataset.flatten_loaders(runtime.dataloaders_dict["valid"])
+    logger.info("Loading dataset...")
+    dataloaders_dict = dataset.return_dataloaders_dict()
+    train_keys, train_loaders = dataset.flatten_loaders(dataloaders_dict["train"])
+    valid_keys, valid_loaders = dataset.flatten_loaders(dataloaders_dict["valid"])
 
     # --- prior ---
     logger.info("Building prior...")
@@ -99,8 +95,6 @@ def setup_training(
         loss_fn=loss_fn,
         train_lists=(train_keys, train_loaders),
         valid_lists=(valid_keys, valid_loaders),
-        checkpoint_path=str(checkpoint_path) if checkpoint_path else None,
-        device=device,
     )
 
 

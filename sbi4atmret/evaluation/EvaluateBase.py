@@ -27,15 +27,15 @@ class BaseEvaluator:
         """
 
         self.model = model
-        self.net = model.estimator
         self.context = context
         self.config = config
-        self.device = context.device
-        self.test_lists = self.context.test_lists
+        
+        self.net = model.estimator
 
         # Extract from context
         self.runtime = context.runtime
-        self.test_lists = context.test_lists
+        self.test_keys, self.test_loaders = context.test_lists
+        self.device = context.device
         self.checkpoint_path = Path(context.checkpoint_path) if context.checkpoint_path else None
 
         # Setup save directories

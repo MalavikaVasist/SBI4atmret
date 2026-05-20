@@ -54,9 +54,10 @@ if args.action == 'train':
     )
 
     trainer = Trainer(
-        model=model,
-        context=ctx,
         config=config,
+        model=model,
+        dataset=dataset,
+        context=ctx,
     )
 
     trainer.train(resume=args.resume)
@@ -74,9 +75,10 @@ elif args.action == "evaluate":
     )
 
     evaluator = BaseEvaluator(
-        model=model,
-        context=ctx,
         config=config,
+        model=model,
+        dataset=dataset,
+        context=ctx,
     )
 
     evaluator.run_all()

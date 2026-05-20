@@ -22,11 +22,6 @@ class EvaluationContext:
     # dataset components
     test_lists: Any
 
-    # bookkeeping
-    checkpoint_path: Optional[str]
-    device: str
-
-
 def setup_evaluation(
     config: Union[dict, BaseConfig],
     dataset: Dataset,
@@ -40,7 +35,6 @@ def setup_evaluation(
     # --- setup runtime context ---
     runtime = setup_runtime(
         config=config,
-        dataset=dataset,
         checkpoint_path=checkpoint_path,
         device=device,
     )
@@ -56,14 +50,14 @@ def setup_evaluation(
     logger.info("=" * 60)
 
     # --- dataset ---
-    test_keys, test_loaders = dataset.flatten_loaders(runtime.dataloaders_dict["test"])
+    logger.info("Loading dataset...")
+    dataloaders_dict = dataset.return_dataloaders_dict()
+    test_keys, test_loaders = dataset.flatten_loaders(dataloaders_dict["test"])
 
     logger.info("Evaluation setup ready.")
 
     return EvaluationContext(
         runtime=runtime,
         test_lists=(test_keys, test_loaders),
-        checkpoint_path=str(checkpoint_path) if checkpoint_path else None,
-        device=device,
     )
 

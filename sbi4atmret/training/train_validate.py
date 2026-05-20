@@ -11,23 +11,33 @@ import islice
 
 
 class Trainer:
-    def __init__(self, model, context, config):
+    def __init__(self, model, context, config, dataset):
         self.model = model
-        self.ctx = context
+        self.context = context
         self.config = config
-
+        self.dataset = dataset
+s
         # shortcuts
         self.net = self.model.estimator
+
+        ## runtime components
+        self.runtime = context.runtime
+        self.simulator = self.runtime.simulator
+        
+        self.pipe = self.runtime.pipe
+        self.noise = self.runtime.noise
+
+        self.checkpoint_path = self.runtime.checkpoint_path
+        self.device = self.runtime.device
+
+        # training components
         self.optimizer = context.optimizer
         self.scheduler = context.scheduler
         self.loss_fn = context.loss_fn
 
+        # dataset components
         self.train_keys, self.train_loaders = context.train_lists 
         self.valid_keys, self.valid_loaders = context.valid_lists 
-        self.pipe = context.pipe
-        self.noise = context.noise
-
-        self.device = context.device
 
 
     # ------------------------
@@ -36,17 +46,16 @@ class Trainer:
     def train(self, resume =False):
 
         start_epoch = self.config.training_config.epoch_start
-        checkpoint_path = self.ctx.checkpoint_path
 
         # --- resume ---
         if resume:
-            if checkpoint_path is None:
+            if self.checkpoint_path is None:
                 raise ValueError(
                     "resume=True but no checkpoint provided"
                 )
 
             start_epoch = (
-                self.loading_checkpoint(checkpoint_path) + 1
+                self.loading_checkpoint(self.checkpoint_path) + 1
             )
 
         # --- wandb ---
@@ -155,8 +164,8 @@ class Trainer:
         """
         Adapt this depending on your loss signature.
         """
-        if self.ctx.simulator is not None:
-            return self.loss_fn(batch, self.ctx.simulator)
+        if self.context.simulator is not None:
+            return self.loss_fn(batch, self.context.simulator)
         return self.loss_fn(batch)
 
     def step_scheduler(self, train_loss, val_loss):

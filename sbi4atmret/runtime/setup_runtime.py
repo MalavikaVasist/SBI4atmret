@@ -20,14 +20,12 @@ class CoreRuntimeContext:
     domain: Any
     pipe: Any
     noise: Any
-    dataloaders_dict: Any
     checkpoint_path: Optional[str]
     device: str
 
 
 def setup_runtime(
     config: Union[dict, BaseConfig],
-    dataset: Dataset,
     checkpoint_path: Optional[Path] = None,
     device: str = "cuda",
 ) -> CoreRuntimeContext:
@@ -77,10 +75,6 @@ def setup_runtime(
     logger.info("Building noise...")
     noise = config.build_noise(domain=domain)
 
-    # --- dataset / dataloaders ---
-    logger.info("Loading dataset...")
-    dataloaders_dict = dataset.return_dataloaders_dict()
-
     # --- validating checkpoint path ---
     if checkpoint_path:
         if checkpoint_path.exists():
@@ -96,7 +90,6 @@ def setup_runtime(
         domain=domain,
         pipe=pipe,
         noise=noise,
-        dataloaders_dict=dataloaders_dict,
         checkpoint_path=str(checkpoint_path) if checkpoint_path else None,
         device=device,
     )
