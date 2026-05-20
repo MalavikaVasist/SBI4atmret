@@ -29,11 +29,6 @@ class Trainer:
 
         self.device = context.device
 
-        # move model + prior
-        self.net.to(self.device)
-        if self.ctx.prior is not None:
-            self.ctx.prior = self.ctx.prior.to(self.device)
-
 
     # ------------------------
     # PUBLIC API

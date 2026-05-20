@@ -35,7 +35,6 @@ home = os.environ.get('HOME')
 
 import sys
 sys.path.insert(0, str(Path(home) / 'WISEJ1738/sbi_ear'))
-from utils.emission_model_general import emission_model_diseq, temp_model_nodes
 from .pressure_layers import *
 
 MEMORY = Memory(os.getcwd(), mmap_mode='c', verbose=0)

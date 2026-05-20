@@ -1,8 +1,10 @@
 
+from logging import config
 from pathlib import Path
 from typing import Union, Optional
 import logging
 
+from sbi4atmret.runtime.setup_runtime import CoreRuntimeContext, setup_runtime
 import torch
 import torch.optim.lr_scheduler as sched
 
@@ -23,23 +25,20 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 @dataclass
 class TrainingContext:
 
+    runtime: CoreRuntimeContext
+
     # training components
-    optimizer: torch.optim.Optimizer
-    scheduler: Optional[Any]
+    optimizer: Any
+    scheduler: Any
     loss_fn: Any
 
     # dataset components
-    train_lists = list(Any, Any), 
-    val_lists = list(Any, Any), 
-    pipe = Any
-
-    # domain-specific
-    prior: Any
+    train_lists: Any
+    valid_lists: Any
 
     # bookkeeping
     checkpoint_path: Optional[str]
     device: str
-
 
 
 def setup_training(
@@ -53,6 +52,14 @@ def setup_training(
     Build the full training context (everything except the Trainer).
     """
 
+    # --- setup runtime context ---
+    runtime = setup_runtime(
+        config=config,
+        dataset=dataset,
+        checkpoint_path=checkpoint_path,
+        device=device,
+    )
+
     # --- config ---
     if isinstance(config, dict):
         config = BaseConfig(**config)
@@ -63,47 +70,13 @@ def setup_training(
     logger.info("BUILDING TRAINING CONTEXT")
     logger.info("=" * 60)
 
-    # --- device ---
-    cuda_info = get_cuda_info(config)
-    if device == "cuda" and not cuda_info:
-        logger.warning("CUDA not available, switching to CPU")
-        device = "cpu"
-
-    
-    # --- dataset / dataloaders ---
-    logger.info("Loading dataset...")
-    dataloaders_dict = dataset.return_dataloaders_dict()
-
-    train_keys, train_loaders = dataset.flatten_loaders(dataloaders_dict["train"])
-    valid_keys, valid_loaders = dataset.flatten_loaders(dataloaders_dict["valid"])
-
-    # --- simulator ---
-    simulator_dict = config.build_simulators()
-
-    # --- observation ---
-
-    obs = Observation(
-        observation_config=config.observation_config,
-        dataset_config=config.dataset_config,
-        simulator_config=config.simulator_config,
-            )
-
-    # --- domain context ---
-    domain = build_domain_context(
-                    simulators=simulator_dict,
-                    observation=obs,
-                )
-                    
-    # --- pipeline
-
-    pipe = config.build_pipe(domain = domain)
-
-    # --- noise
-    noise = config.build_noise(domain = domain)
+    # --- dataset ---
+    train_keys, train_loaders = dataset.flatten_loaders(runtime.dataloaders_dict["train"])
+    valid_keys, valid_loaders = dataset.flatten_loaders(runtime.dataloaders_dict["valid"])
 
     # --- prior ---
     logger.info("Building prior...")
-    prior = config.build_prior()
+    prior = config.build_prior().to(device)
 
     # --- optimizer ---
     logger.info("Building optimizer...")
@@ -115,29 +88,19 @@ def setup_training(
 
     # --- loss ---
     logger.info("Building loss...")
-    loss_fn = config.build_loss(model.estimator, prior)
-
-    # --- validating checkpoint path ---
-    if checkpoint_path:
-        if checkpoint_path.exists():
-            logger.info(f"Checkpoint found: {checkpoint_path}")
-        else:
-            logger.warning(f"Checkpoint not found: {checkpoint_path}")
+    loss_fn = config.build_loss(model.estimator.to(device), prior)
 
     logger.info("Training setup ready.")
 
     return TrainingContext(
+        runtime=runtime,
         optimizer=optimizer,
         scheduler=scheduler,
         loss_fn=loss_fn,
-        prior=prior,
+        train_lists=(train_keys, train_loaders),
+        valid_lists=(valid_keys, valid_loaders),
         checkpoint_path=str(checkpoint_path) if checkpoint_path else None,
         device=device,
-        train_lists = (train_keys, train_loaders), 
-        valid_lists = (valid_keys, valid_loaders), 
-        pipe = pipe,
-        noise = noise
     )
-
 
 
