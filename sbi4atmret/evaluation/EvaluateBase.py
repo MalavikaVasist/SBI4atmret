@@ -1,8 +1,6 @@
 
-from pathlib import Path
-from typing import Optional
 import logging
-from sbi4atmret.utils.checkpoint import load_model_checkpoint
+from sbi4atmret.utils.checkpoint import load_checkpoint, load_model_state
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -29,46 +27,39 @@ class BaseEvaluator:
         self.model = model
         self.context = context
         self.config = config
-        
-        self.net = model.estimator
 
-        # Extract from context
-        self.runtime = context.runtime
+        ## domain components
+        self.domain = context.runtime.domain
+
+        self.simulator = self.domain.simulators
+        self.observation = self.domain.observation
+        self.pipe = self.domain.pipe
+        self.noise = self.domain.noise
+        
+        self.checkpoint_path = context.runtime.checkpoint_path
+        self.device = context.runtime.device
+
+        ## dataset components
         self.test_keys, self.test_loaders = context.test_lists
-        self.device = context.device
-        self.checkpoint_path = Path(context.checkpoint_path) if context.checkpoint_path else None
 
         # Setup save directories
-        if self.checkpoint_path and self.checkpoint_path.exists():
-            self.savefolder = self.checkpoint_path.parent.parent
-        else:
-            self.savefolder = Path.cwd()
-
+        self.savefolder = self.checkpoint_path.parent.parent
         self.eval_dir = self.savefolder / "evaluations"
         self.eval_dir.mkdir(parents=True, exist_ok=True)
 
         # Load and setup model
-        if self.checkpoint_path and self.checkpoint_path.exists():
-            self.load_model_state(self.net, self.checkpoint_path)
-            logger.info(f"Loaded checkpoint from {self.checkpoint_path}")
-        
+        self.net = self.model.estimator
+        checkpoint = load_checkpoint(self.checkpoint_path, self.device)
+        load_model_state(self.net, checkpoint)
         self.net.to(self.device)
 
         # Build posterior
-        self.posterior = model.flow()
+        self.posterior = self.build_posterior()
 
-    def load_model_state(self, net, checkpoint_path):
-        """Load model state from checkpoint."""
-        try:
-            checkpoint = load_model_checkpoint(checkpoint_path)
-            net.load_state_dict(checkpoint['estimator'])
-            logger.info("Model state loaded successfully")
-        except Exception as e:
-            logger.warning(f"Failed to load model state: {e}")
 
     def build_posterior(self):
         """Build posterior from the model."""
-        posterior = self.net.inference.build_posterior(self.net.estimator)
+        posterior = self.model.flow().to(self.device)
         return posterior
 
     def run_all(self):

@@ -2,6 +2,7 @@ import time
 
 import yaml
 
+from sbi4atmret.runtime.batch_processor import BatchProcessor
 from sbi4atmret.utils.checkpoint import load_checkpoint, load_model_state, save_checkpoint
 import torch
 import wandb
@@ -16,19 +17,17 @@ class Trainer:
         self.context = context
         self.config = config
         self.dataset = dataset
-s
-        # shortcuts
-        self.net = self.model.estimator
 
-        ## runtime components
-        self.runtime = context.runtime
-        self.simulator = self.runtime.simulator
+        ## domain components
+        self.domain = context.runtime.domain
+
+        self.simulator = self.domain.simulators
+        self.observation = self.domain.observation
+        self.pipe = self.domain.pipe
+        self.noise = self.domain.noise
         
-        self.pipe = self.runtime.pipe
-        self.noise = self.runtime.noise
-
-        self.checkpoint_path = self.runtime.checkpoint_path
-        self.device = self.runtime.device
+        self.checkpoint_path = context.runtime.checkpoint_path
+        self.device = context.runtime.device
 
         # training components
         self.optimizer = context.optimizer
@@ -39,6 +38,16 @@ s
         self.train_keys, self.train_loaders = context.train_lists 
         self.valid_keys, self.valid_loaders = context.valid_lists 
 
+        # additional shortcuts
+        self.net = self.model.estimator
+        self.net.to(self.device)
+
+        self.batch_processor = BatchProcessor(
+                                    dataset=self.dataset,
+                                    pipe=self.pipe,
+                                    noise=self.noise,
+                                    device=self.device,
+                                )
 
     # ------------------------
     # PUBLIC API
@@ -110,31 +119,28 @@ s
     # ------------------------
     # CORE METHODS
     # ------------------------
+    
     def train_one_epoch(self):
         self.net.train()
 
         losses = []
 
         for batches in islice(zip(*self.train_loaders), self.config.training_config.gradient_steps_train):
+            theta, x = self.batch_processor.prepare_batch(batches, self.train_keys)
+            theta, x  = self._to_device(theta), self._to_device(x)
+
+            self.optimizer.zero_grad()
+            loss = self.loss_fn(theta, x)
+            loss.backward()
+
+            # gradient clipping
+            clip = self.config.training_config.clip_grad_norm
+            if clip:
+                torch.nn.utils.clip_grad_norm_(self.net.parameters(), clip)
                 
-                batch_dict = self.dataset.reconstruct_batch(self.train_keys, batches)
-                processed_batch = self.pipe(batch_dict) #modifications- scaling and masking spec, prior expansion
-                noisy_batch_dict = self.noise(processed_batch)
-                theta, x = self.pipe.build_input(noisy_batch_dict)
-                theta, x  = self._to_device(theta), self._to_device(x)
+            self.optimizer.step()
 
-                self.optimizer.zero_grad()
-                loss = self.loss_fn(theta, x)
-                loss.backward()
-
-                # gradient clipping
-                clip = self.config.training_config.clip_grad_norm
-                if clip:
-                    torch.nn.utils.clip_grad_norm_(self.net.parameters(), clip)
-                    
-                self.optimizer.step()
-
-                losses.append(loss.detach())
+            losses.append(loss.detach().cpu())
 
         return torch.stack(losses)
 
@@ -144,29 +150,19 @@ s
 
         losses = []
 
-        for batches in islice(zip(*self.valid_loaders), self.config.training_config.gradient_steps_valid):
-                
-                batch_dict = self.dataset.reconstruct_batch(self.valid_keys, batches)
-                processed_batch = self.pipe(batch_dict) #modifications- scaling and masking spec, prior expansion
-                noisy_batch_dict = self.noise(processed_batch)
-                theta, x = self.pipe.build_input(noisy_batch_dict)
-                theta, x  = self._to_device(theta), self._to_device(x)
+        with torch.no_grad():
+            for batches in islice(zip(*self.valid_loaders), self.config.training_config.gradient_steps_valid):
+                    theta, x = self.batch_processor.prepare_batch(batches, self.valid_keys)
+                    theta, x  = self._to_device(theta), self._to_device(x)
 
-                loss = self.loss_fn(theta, x)
-                losses.append(loss.detach())
+                    loss = self.loss_fn(theta, x)
+                    losses.append(loss.detach().cpu())
 
         return torch.stack(losses)
 
     # ------------------------
     # UTILITIES
     # ------------------------
-    def compute_loss(self, batch):
-        """
-        Adapt this depending on your loss signature.
-        """
-        if self.context.simulator is not None:
-            return self.loss_fn(batch, self.context.simulator)
-        return self.loss_fn(batch)
 
     def step_scheduler(self, train_loss, val_loss):
         if self.scheduler is None:

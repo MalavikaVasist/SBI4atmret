@@ -1,18 +1,13 @@
 
-from logging import config
 from pathlib import Path
 from typing import Union, Optional
 import logging
 
 from sbi4atmret.runtime.setup_runtime import CoreRuntimeContext, setup_runtime
-import torch
-import torch.optim.lr_scheduler as sched
 
 from ..config.configs import BaseConfig
-from ..torchutils.general import get_cuda_info, to_device
 from ..datasets.DatasetBase import Dataset
-from ..observations.ObservationBase import Observation
-from ..domain.builders import build_domain_context
+
 
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
@@ -72,7 +67,7 @@ def setup_training(
 
     # --- prior ---
     logger.info("Building prior...")
-    prior = config.build_prior().to(device)
+    prior = config.build_prior().to(runtime.device)
 
     # --- optimizer ---
     logger.info("Building optimizer...")
@@ -84,7 +79,7 @@ def setup_training(
 
     # --- loss ---
     logger.info("Building loss...")
-    loss_fn = config.build_loss(model.estimator.to(device), prior)
+    loss_fn = config.build_loss(model.estimator.to(runtime.device), prior)
 
     logger.info("Training setup ready.")
 

@@ -1,0 +1,14 @@
+DomainContext
+    scientific semantics
+
+CoreRuntimeContext
+    execution environment
+
+BatchProcessor
+    data → model-input transformation
+
+Trainer
+    optimization orchestration
+
+Evaluator
+    posterior diagnostics

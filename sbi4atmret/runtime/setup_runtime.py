@@ -6,6 +6,7 @@ from pathlib import Path
 from sbi4atmret.config.configs import BaseConfig
 from sbi4atmret.datasets.DatasetBase import Dataset
 from sbi4atmret.domain.builders import build_domain_context
+from sbi4atmret.domain.context import DomainContext
 from sbi4atmret.observations.ObservationBase import Observation
 from sbi4atmret.torchutils.general import get_cuda_info
 
@@ -15,11 +16,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 
 @dataclass
 class CoreRuntimeContext:
-    simulators: Any
-    observation: Any
-    domain: Any
-    pipe: Any
-    noise: Any
+    domain: DomainContext
     checkpoint_path: Optional[str]
     device: str
 
@@ -65,15 +62,8 @@ def setup_runtime(
     domain = build_domain_context(
         simulators=simulator_dict,
         observation=obs,
+        config=config,
     )
-
-    # --- pipeline ---
-    logger.info("Building pipeline...")
-    pipe = config.build_pipe(domain=domain)
-
-    # --- noise ---
-    logger.info("Building noise...")
-    noise = config.build_noise(domain=domain)
 
     # --- validating checkpoint path ---
     if checkpoint_path:
@@ -85,11 +75,8 @@ def setup_runtime(
     logger.info("Runtime setup ready.")
 
     return CoreRuntimeContext(
-        simulators=simulator_dict,
-        observation=obs,
         domain=domain,
-        pipe=pipe,
-        noise=noise,
         checkpoint_path=str(checkpoint_path) if checkpoint_path else None,
         device=device,
     )
+

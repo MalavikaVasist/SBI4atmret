@@ -45,6 +45,7 @@ if args.checkpoint_path:
 if args.action == 'train':
     print("Starting training!", flush=True)
 
+    ## setup the training context 
     ctx = setup_training(
         config=config,
         model=model,

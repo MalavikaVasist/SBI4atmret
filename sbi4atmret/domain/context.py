@@ -1,12 +1,19 @@
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Dict
 
 
 @dataclass(frozen=True)
 class DomainContext:
 
-    simulators: dict
+    # core scientific components
+    simulator: Dict[str, Any]
     observation: Any
+
+    # preprocessing / inference components
+    pipe: Any
+    noise: Any
+
+    # domain metadata
 
     param_index: dict
 
@@ -18,3 +25,5 @@ class DomainContext:
     scale: float
 
     unsort_index: list
+
+

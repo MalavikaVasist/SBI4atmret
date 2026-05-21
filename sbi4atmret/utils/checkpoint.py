@@ -1,3 +1,5 @@
+from asyncio.log import logger
+
 import torch
 
 
@@ -6,7 +8,12 @@ def load_checkpoint(path, device="cuda"):
 
 
 def load_model_state(estimator, checkpoint):
-    estimator.load_state_dict(checkpoint["estimator_state_dict"])
+    """Load model state from checkpoint."""
+    try:
+        estimator.load_state_dict(checkpoint['estimator_state_dict'])
+        logger.info("Model state loaded successfully")
+    except Exception as e:
+        logger.warning(f"Failed to load model state: {e}")
 
 
 def save_checkpoint(path:str, estimator, optimizer=None, scheduler=None, epoch=0):
@@ -16,3 +23,5 @@ def save_checkpoint(path:str, estimator, optimizer=None, scheduler=None, epoch=0
         "optimizer_state_dict": optimizer.state_dict() if optimizer else None,
         "scheduler_state_dict": scheduler.state_dict() if scheduler else None,
     }, path)
+
+
