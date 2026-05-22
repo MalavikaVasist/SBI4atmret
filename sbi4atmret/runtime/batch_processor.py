@@ -49,7 +49,7 @@ class BatchProcessor:
 
 
 
-    class BatchProcessor:
+    # class BatchProcessor:
 
         def __init__(
             self,

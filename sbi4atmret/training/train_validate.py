@@ -4,6 +4,7 @@ import yaml
 
 from sbi4atmret.runtime.batch_processor import BatchProcessor
 from sbi4atmret.utils.checkpoint import load_checkpoint, load_model_state, save_checkpoint
+from sbi4atmret.torchutils import to_device, _to_device
 import torch
 import wandb
 from tqdm import tqdm
@@ -127,7 +128,7 @@ class Trainer:
 
         for batches in islice(zip(*self.train_loaders), self.config.training_config.gradient_steps_train):
             theta, x = self.batch_processor.prepare_batch(batches, self.train_keys)
-            theta, x  = self._to_device(theta), self._to_device(x)
+            theta, x  = _to_device(theta), _to_device(x)
 
             self.optimizer.zero_grad()
             loss = self.loss_fn(theta, x)
@@ -153,7 +154,7 @@ class Trainer:
         with torch.no_grad():
             for batches in islice(zip(*self.valid_loaders), self.config.training_config.gradient_steps_valid):
                     theta, x = self.batch_processor.prepare_batch(batches, self.valid_keys)
-                    theta, x  = self._to_device(theta), self._to_device(x)
+                    theta, x  = _to_device(theta), _to_device(x)
 
                     loss = self.loss_fn(theta, x)
                     losses.append(loss.detach().cpu())
@@ -199,13 +200,6 @@ class Trainer:
 
             save_checkpoint(path, self.net, self.optimizer, self.scheduler, epoch)
 
-    def _to_device(self, batch):
-        if isinstance(batch, (list, tuple)):
-            return [b.to(self.device) for b in batch]
-        if isinstance(batch, dict):
-            return {k: v.to(self.device) for k, v in batch.items()}
-        return batch.to(self.device)
-    
 
     def loading_checkpoint(self, path: str):
 

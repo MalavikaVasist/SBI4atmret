@@ -1,6 +1,8 @@
 
 import logging
 from sbi4atmret.utils.checkpoint import load_checkpoint, load_model_state
+from sbi4atmret.runtime.batch_processor import BatchProcessor
+from utils import to_device
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -57,6 +59,13 @@ class BaseEvaluator:
         self.posterior = self.build_posterior()
 
 
+        self.batch_processor = BatchProcessor(
+                            dataset=self.dataset,
+                            pipe=self.pipe,
+                            noise=self.noise,
+                            device=self.device,
+                        )
+
     def build_posterior(self):
         """Build posterior from the model."""
         posterior = self.model.flow().to(self.device)
@@ -84,6 +93,7 @@ class BaseEvaluator:
         """Run coverage evaluation."""
         from .coverage import compute_coverage
         self.coverage = compute_coverage(
+            self.batch_processor,
             posterior=self.posterior,
             dataset=self.test_lists,
             config=self.config,

@@ -18,3 +18,11 @@ def to_device(module, device):
         return None
 
     return module.to(device)
+
+
+def _to_device(self, batch):
+    if isinstance(batch, (list, tuple)):
+        return [b.to(self.device) for b in batch]
+    if isinstance(batch, dict):
+        return {k: v.to(self.device) for k, v in batch.items()}
+    return batch.to(self.device)
