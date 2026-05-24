@@ -1,28 +1,19 @@
 
 from itertools import islice
-from logging import config
-from turtle import pd
 from EvaluateBase import BaseEvaluator
 
-from sbi4atmret.torchutils.general import _to_device
 import torch
 import numpy as np
 from matplotlib import pyplot as plt
-
+import pandas as pd
 
 class CoverageEvaluator(BaseEvaluator):
 
-    def __init__():
-        super().__init__()
-
-    def compute_coverage(self, plot=True): 
+    def compute_coverage(self, plot=True, save_path=None): 
         ranks = []
         with torch.no_grad():
             for batches in islice(zip(*self.test_loaders), 128):
                 theta, x = self.batch_processor.prepare_batch(batches, self.test_keys)
-                # theta, x  = _to_device(theta), _to_device(x)
-                theta, x = theta.to(self.device), x.to(self.device)
-
 
                 posterior = self.estimator.flow(x)
                 samples = posterior.sample((1024,))
@@ -47,16 +38,20 @@ class CoverageEvaluator(BaseEvaluator):
             a.append((r > (1-alpha)).mean())
 
         if plot: 
-            self.plot_coverage(a)
+            image = self.plot(a)
+            if save_path is not None:
+                image.savefig(save_path, bbox_inches='tight')
+                
+        return image
 
-    def plot_coverage(self, a):
+
+    def plot(self, a):
         cov_fig, ax = plt.subplots(figsize=(5, 5))
         ax.set_xlabel(r'Credibility level $1-\alpha$', fontsize = 12)
         ax.set_ylabel(r'Coverage probability', fontsize= 12)
-        ax.plot(np.linspace(0,1,100),a, color='steelblue', label='upper right') #a[::-1]
+        ax.plot(np.linspace(0,1,100),a, color='steelblue', label='') #a[::-1]
         ax.plot([0, 1], [0, 1], color='k', linestyle='--')
         plt.xticks(fontsize=10)
         plt.yticks(fontsize=10)
         plt.legend(fontsize=12)
-        cov_fig.savefig(self.eval_dir / 'coverage.pdf') 
         return cov_fig    

@@ -1,14 +1,19 @@
 
 
-# from sbi4atmret.evaluation.EvaluateBase import BaseEvaluator
+from sbi4atmret.evaluation.EvaluateBase import BaseEvaluator
 
 
-# class CosnistencyEvaluator(BaseEvaluator):
-#     def __init__():
-#         super().__init__()
+class CosnistencyEvaluator(BaseEvaluator):
+    def __init__():
+        super().__init__()
+
+    def compute_posterior_predictive(self, plot=True):
+        return None
 
 
-#     def compute_consistency(self, plot=True):
+
+    # def plot
+
 
 
 

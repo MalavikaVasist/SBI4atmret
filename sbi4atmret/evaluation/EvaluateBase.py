@@ -1,11 +1,9 @@
 
-import logging
 from sbi4atmret.utils.checkpoint import load_checkpoint, load_model_state
 from sbi4atmret.runtime.batch_processor import BatchProcessor
-from utils import to_device
-
-# Setup logging
-logger = logging.getLogger(__name__)
+import torch
+import pandas as pd
+from tqdm import tqdm
 
 
 class BaseEvaluator:
@@ -58,18 +56,46 @@ class BaseEvaluator:
         # Build posterior
         self.posterior = self.build_posterior()
 
-
+        # Build posterior
         self.batch_processor = BatchProcessor(
                             dataset=self.dataset,
                             pipe=self.pipe,
                             noise=self.noise,
                             device=self.device,
                         )
+        
+        ## sampling from posterior
+        self.x_obs = self.observation.full_observation
+        self.theta = self.sampling_from_post(
+                                        torch.from_numpy(self.x_obs).unsqueeze(0).float().to(self.device), 
+                                        self.eval_dir/'theta.csv', 
+                                        only_returning = False) 
 
     def build_posterior(self):
         """Build posterior from the model."""
         posterior = self.model.flow().to(self.device)
         return posterior
+    
+    def sampling_from_post(self, x, name, only_returning = True):
+    
+        if not only_returning: 
+            with torch.no_grad():
+                theta = torch.cat([
+                    self.model.flow(x).sample((2**14,)).cpu()
+                    for _ in tqdm(range(2**6))
+                ])
+                theta = theta.squeeze()
+            ##Saving to file
+            theta_numpy = theta.double().numpy() #convert to Numpy array
+            df_theta = pd.DataFrame(theta_numpy) #convert to a dataframe
+            df_theta.to_csv( name ,index=False) #save to file
+            return theta
+        
+        #Then, to reload:
+        df_theta = pd.read_csv(name)
+        theta = df_theta.values
+        return torch.from_numpy(theta)
+
 
     def run_all(self):
         """Run all evaluation methods."""
@@ -79,57 +105,17 @@ class BaseEvaluator:
         self.run_pt_profile()
         self.run_posterior_predictive()
 
-    def run_corner(self):
-        """Run corner plot evaluation."""
-        from .Plots import make_corner_plot
-        make_corner_plot(
-            posterior=self.posterior,
-            dataset=self.test_lists,
-            config=self.config,
-            save_path=self.eval_dir / "corner.png",
-        )
-
-    def run_coverage(self):
-        """Run coverage evaluation."""
-        from .coverage import compute_coverage
-        self.coverage = compute_coverage(
-            self.batch_processor,
-            posterior=self.posterior,
-            dataset=self.test_lists,
-            config=self.config,
-            save_path=self.eval_dir / "coverage.png",
-        )
-
-    def run_sbc(self):
-        """Run SBC (Simulation-Based Calibration) evaluation."""
-        from .consistency import compute_sbc
-        self.consistency = compute_sbc(
-            posterior=self.posterior,
-            dataset=self.test_lists,
-            config=self.config,
-            save_path=self.eval_dir / "sbc.png",
-        )
-
-    def run_pt_profile(self):
-        """Run PT profile evaluation."""
-        from .PT_profile import compute_pt_profile
-        self.PTprofile = compute_pt_profile(
-            posterior=self.posterior,
-            dataset=self.test_lists,
-            config=self.config,
-            save_path=self.eval_dir / "pt_profile.png",
-        )
-
-    def run_posterior_predictive(self):
-        """Run posterior predictive evaluation."""
-        from .Plots import compute_posterior_predictive
-        self.IS = compute_posterior_predictive(
-            posterior=self.posterior,
-            dataset=self.test_lists,
-            config=self.config,
-            save_path=self.eval_dir / "posterior_predictive.png",
-        )
-
     def perform_evaluations(self):
         """Alias for run_all."""
         self.run_all()
+
+
+    # def run_sbc(self):
+    #     """Run SBC (Simulation-Based Calibration) evaluation."""
+    #     from .consistency import compute_sbc
+    #     self.consistency = compute_sbc(
+    #         posterior=self.posterior,
+    #         dataset=self.test_lists,
+    #         config=self.config,
+    #         save_path=self.eval_dir / "sbc.pdf",
+    #     )
