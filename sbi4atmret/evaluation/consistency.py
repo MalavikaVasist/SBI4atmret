@@ -1,18 +1,55 @@
 
 
+from dataclasses import dataclass
+
 from sbi4atmret.evaluation.EvaluateBase import BaseEvaluator
 
 
-class CosnistencyEvaluator(BaseEvaluator):
-    def __init__():
-        super().__init__()
+class Consistencywrapper(BaseEvaluator):
 
     def compute_posterior_predictive(self, plot=True):
+
+        '''
+        find all the simulators from simulator_dict and simulate the 
+        posterior predictive for each of them. 
+        '''
         return None
+    
+    def combine_predictive_checks(self, plot=True):
+
+        '''
+        combine the posterior predictive checks into a single consistency check based
+        on the sort_index. 
+        '''
+        return None
+    
+
+    def plot(self, plot=True):
+
+        '''
+        plot and save the consistency check. 
+        '''
+        return fig
 
 
 
     # def plot
+
+
+@dataclass(frozen=True)
+class ConsistencyEvaluator:
+
+    posterior_samples: torch.Tensor
+
+    predictive_samples: dict
+
+    wavelengths: dict
+
+    residuals: dict
+
+    merged_prediction: Optional[np.ndarray]
+
+    figure: Optional[Any] = None
 
 
 

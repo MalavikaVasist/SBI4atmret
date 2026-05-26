@@ -1,7 +1,7 @@
 from .context import DomainContext
 
 
-def build_domain_context(simulators, observation, config):
+def build_domain_context(simulator_dict, observation, config):
     """
     Construct the shared scientific/domain context.
 
@@ -29,7 +29,7 @@ def build_domain_context(simulators, observation, config):
         simname: {
             name: i for i, name in enumerate(sim.names)
         }
-        for simname, sim in simulators.items()
+        for simname, sim in simulator_dict.items()
     }
 
     # -----------------------------------
@@ -49,7 +49,7 @@ def build_domain_context(simulators, observation, config):
 
     sim_wlens = {
         name: sim.wavelength
-        for name, sim in simulators.items()
+        for name, sim in simulator_dict.items()
     }
 
     # -----------------------------------
@@ -108,7 +108,7 @@ def build_domain_context(simulators, observation, config):
     # -----------------------------------
 
     partial_domain = DomainContext(
-        simulators=simulators,
+        simulator_dict=simulator_dict,
         observation=observation,
 
         pipe=None,
@@ -143,7 +143,7 @@ def build_domain_context(simulators, observation, config):
     # -----------------------------------
 
     return DomainContext(
-        simulators=simulators,
+        simulator_dict=simulator_dict,
         observation=observation,
 
         pipe=pipe,

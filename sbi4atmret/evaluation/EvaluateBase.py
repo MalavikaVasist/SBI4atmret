@@ -31,7 +31,7 @@ class BaseEvaluator:
         ## domain components
         self.domain = context.runtime.domain
 
-        self.simulator = self.domain.simulators
+        self.simulator_dict = self.domain.simulator_dict
         self.observation = self.domain.observation
         self.pipe = self.domain.pipe
         self.noise = self.domain.noise
@@ -104,6 +104,7 @@ class BaseEvaluator:
         self.run_corner()
         self.run_pt_profile()
         self.run_posterior_predictive()
+        
 
     def perform_evaluations(self):
         """Alias for run_all."""

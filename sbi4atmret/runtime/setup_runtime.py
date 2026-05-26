@@ -60,7 +60,7 @@ def setup_runtime(
     # --- domain context ---
     logger.info("Building domain context...")
     domain = build_domain_context(
-        simulators=simulator_dict,
+        simulator_dict=simulator_dict,
         observation=obs,
         config=config,
     )
