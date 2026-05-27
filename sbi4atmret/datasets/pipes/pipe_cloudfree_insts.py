@@ -63,6 +63,8 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
         thetag, xg = cf["gemini"]
         thetah, xh = cf["hst"]
 
+        ###modify spec and theta
+
         x = self.merge_spec(x, xg, xh)
         
         # Use mapper to merge theta and store metadata for later evaluation
@@ -108,9 +110,12 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
         return self.theta_mapper.split(theta_posterior, self._last_merge_metadata)
     
 
+    def forward(self, batch_dict: dict):
 
+        batch_dict = self.modify_spec(batch_dict)
+        batch_dict = self.modify_prior(batch_dict)
 
-    
+        return batch_dict
 
 
 
