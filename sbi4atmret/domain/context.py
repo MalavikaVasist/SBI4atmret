@@ -6,7 +6,7 @@ from typing import Any, Dict
 class DomainContext:
 
     # core scientific components
-    simulator: Dict[str, Any]
+    simulator_dict: Dict[str, Any]
     observation: Any
 
     # preprocessing / inference components

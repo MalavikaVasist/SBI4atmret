@@ -1,5 +1,8 @@
 import torch
+import numpy as np
 
+from petitRADTRANS.retrieval.rebin_give_width import rebin_give_width
+from petitRADTRANS.retrieval.data import Data
 
 class BasePipe:
     def __init__(self, config, domain):
@@ -17,6 +20,25 @@ class BasePipe:
             mask = mask + torch.isin(torch.from_numpy(wlen_geminisim), obs_wlen_gemini[ind].item())
         
         return mask
+    
+    def _wlenbins(self, w1):
+        wlen_bins = np.zeros_like(w1)
+        wlen_bins[:-1] = np.diff(w1)
+        wlen_bins[-1] = wlen_bins[-2]
+        return wlen_bins
+
+    def _rebinit(self, xh):
+        wlen_hstsim = self.domain.sim_wlens["cloudfree_hst"]
+        obs_wlen_hst = self.domain.obs_wlens["hst"]
+        xh = xh[:,115:552]
+        wlen_hstsim = wlen_hstsim[:,115:552]
+        wlen_bins = self._wlenbins(obs_wlen_hst)
+    #     xx = np.stack([Data.convolve(wlen_hstsim, x, 130) for x in xh])
+    #     flux_rebinned = torch.stack([torch.from_numpy(rebin_give_width(wlen_hstsim, x, self.wlen, wlen_bins)) for x in xx])
+        xx = Data.convolve(wlen_hstsim, xh, 130)
+        flux_rebinned = torch.from_numpy(self._rebin_give_width(wlen_hstsim, xx, obs_wlen_hst, wlen_bins))
+        return flux_rebinned
+       
 
     @property
     def param_index(self):
@@ -43,6 +65,17 @@ class BasePipe:
 
         return batch_dict 
 
+    def build_input(self, batch_dict):
+        raise NotImplementedError
+    
+    def merge_spec(self, spectra):
+        raise NotImplementedError
+    
+    def merge_theta(self, parameters):
+        raise NotImplementedError
+
+    def split_theta(self, theta):
+        raise NotImplementedError
 
 
     

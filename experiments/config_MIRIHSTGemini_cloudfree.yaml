@@ -107,7 +107,8 @@ simulator:
       conv: true
       a: 4.9
       b: 19
-  # cloudy_miri:
+
+  cloudy_miri:
     type: simulators.simulator.Simulator
     kwargs: 
       emission_model:
@@ -173,6 +174,7 @@ simulator:
       contribution: true
       PT_plot_mode: false
       conv: true
+  
   cloudfree_hst:
     type: simulators.simulator.Simulator
     kwargs:
@@ -238,7 +240,8 @@ simulator:
       conv: true
       a: 4.9
       b: 19
-  # cloudy_hst:
+
+  cloudy_hst:
     type: simulators.simulator.Simulator
     kwargs: 
       emission_model:
@@ -306,6 +309,7 @@ simulator:
       contribution: true
       PT_plot_mode: false
       conv: true
+  
   cloudfree_gemini:
     type: simulators.simulator.Simulator
     kwargs:
@@ -371,7 +375,8 @@ simulator:
       conv: true
       a: 4.9
       b: 19
-  # cloudy_gemini:
+
+  cloudy_gemini:
     type: simulators.simulator.Simulator
     kwargs: 
       emission_model:
