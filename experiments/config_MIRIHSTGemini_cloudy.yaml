@@ -20,7 +20,7 @@ observation:
 dataset:
   D: 7.34
   shuffle: true
-  # order: ["miri", "gemini", "hst"] ## important for pipe functions
+  order: ["miri", "gemini", "hst"] ## important for pipe functions
   dataset_path:
     cloudfree:
       miri:
@@ -29,50 +29,50 @@ dataset:
         path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/GEMINI/cloudfree/
       hst:
         path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudfree/
-    # cloudy:
-    #   miri:
-    #     path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI/cloudfree/
-    #   gemini:
-    #     path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/GEMINI/cloudfree/
-    #   hst:
-    #     path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudfree/
+    cloudy:
+      miri:
+        path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI/cloudfree/
+      gemini:
+        path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/GEMINI/cloudfree/
+      hst:
+        path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudfree/
   pipe:
     type: pipes.pipe_HST_Gemini_MIRI_cloudfree.MiriGeminiHSTPipe
-    kwargs:
-      theta_mapper:
-        type: theta_mapper.thetamapper_mgh.MiriGeminiHSTThetaMapper
-        kwargs: 
-          posterior_names :
-            - R_pl
-            - mass
-            - T_bottom
-            - temp_node_1
-            - temp_node_2
-            - temp_node_3
-            - temp_node_4
-            - temp_node_5
-            - temp_node_6
-            - temp_node_7
-            - temp_node_8
-            - temp_node_9
-            - H2O_mol_scale
-            - CO2_mol_scale
-            - CO_mol_scale
-            - CH4_mol_scale
-            - NH3_mol_scale
-            - PH3_mol_scale
-            - H2S_mol_scale
-            - 15NH3_mol_scale
-            - HCN_mol_scale
-            - TiO_mol_scale
-            - VO_mol_scale
-            - bfactor_noise_gemini
-            - bfactor_noise_hst
-            - bfactor_noise_miri
+    kwargs: {}
   noise:
     type: likelihoods.gaussian.Gaussian
     kwargs: {}
-  
+  theta_mapper:
+    type: utils.theta_mapper_theta_split.TMapperThetaSplit
+    kwargs:
+      posterior_names :
+        - R_pl
+        - mass
+        - T_bottom
+        - temp_node_1
+        - temp_node_2
+        - temp_node_3
+        - temp_node_4
+        - temp_node_5
+        - temp_node_6
+        - temp_node_7
+        - temp_node_8
+        - temp_node_9
+        - H2O_mol_scale
+        - CO2_mol_scale
+        - CO_mol_scale
+        - CH4_mol_scale
+        - NH3_mol_scale
+        - PH3_mol_scale
+        - H2S_mol_scale
+        - 15NH3_mol_scale
+        - HCN_mol_scale
+        - TiO_mol_scale
+        - VO_mol_scale
+        - bfactor_noise_gemini
+        - bfactor_noise_hst
+        - bfactor_noise_miri
+      
 simulator:
   cloudfree_miri:
     type: simulators.simulator.Simulator
@@ -138,6 +138,73 @@ simulator:
       a: 4.9
       b: 19
 
+  cloudy_miri:
+    type: simulators.simulator.Simulator
+    kwargs: 
+      emission_model:
+        type: utils.emission_model_general.emission_model_diseq
+        kwargs: {}
+      PT_profile:
+        type: utils.PT_profiles.pt_profile
+        kwargs: {}
+      line_species: 
+        - CH4_hargreaves
+        - H2O_Exomol
+        - CO2
+        - CO_all_iso_HITEMP
+        - H2S
+        - NH3
+        - PH3
+        - 15NH3
+        - HCN
+        - TiO_all_Exomol
+        - VO
+      cloud_species: null
+      rayleigh_species: [H2, He]
+      continuum_opacities: [H2-H2, H2-He]
+      names: 
+        - R_pl
+        - mass
+        - T_bottom
+        - temp_node_1
+        - temp_node_2
+        - temp_node_3
+        - temp_node_4
+        - temp_node_5
+        - temp_node_6
+        - temp_node_7
+        - temp_node_8
+        - temp_node_9
+        - H2O_mol_scale
+        - CO2_mol_scale
+        - CO_mol_scale
+        - CH4_mol_scale
+        - NH3_mol_scale
+        - PH3_mol_scale
+        - H2S_mol_scale
+        - 15NH3_mol_scale
+        - HCN_mol_scale
+        - TiO_mol_scale
+        - VO_mol_scale
+        - log_X_cb_H2O(c)
+        - log_Pbase_H2O(c)
+        - fsed
+        - log_kzz
+        - sigma_lnorm
+        - bfactor_noise_miri
+      pressure_scaling: 10
+      pressure_simple: 100
+      pressure_width: 3
+      scale: 1.0e5
+      N_nodes: 10
+      N_data_sets: 9.0
+      D_pl: 9.9
+      AMR: false
+      do_scat_emis: false
+      contribution: true
+      PT_plot_mode: false
+      conv: true
+  
   cloudfree_hst:
     type: simulators.simulator.Simulator
     kwargs:
@@ -204,6 +271,75 @@ simulator:
       a: 4.9
       b: 19
 
+  cloudy_hst:
+    type: simulators.simulator.Simulator
+    kwargs: 
+      emission_model:
+        type: utils.emission_model_general.emission_model_diseq
+        kwargs: {}
+      PT_profile:
+        type: utils.PT_profiles.pt_profile
+        kwargs: {}
+      line_species: 
+        - CH4_hargreaves
+        - H2O_Exomol
+        - CO2
+        - CO_all_iso_HITEMP
+        - H2S
+        - NH3
+        - PH3
+        - 15NH3
+        - HCN
+        - TiO_all_Exomol
+        - VO
+      cloud_species: null
+      rayleigh_species: [H2, He]
+      continuum_opacities: [H2-H2, H2-He]
+      names: 
+        - R_pl
+        - mass
+        - T_bottom
+        - temp_node_1
+        - temp_node_2
+        - temp_node_3
+        - temp_node_4
+        - temp_node_5
+        - temp_node_6
+        - temp_node_7
+        - temp_node_8
+        - temp_node_9
+        - H2O_mol_scale
+        - CO2_mol_scale
+        - CO_mol_scale
+        - CH4_mol_scale
+        - NH3_mol_scale
+        - PH3_mol_scale
+        - H2S_mol_scale
+        - 15NH3_mol_scale
+        - HCN_mol_scale
+        - TiO_mol_scale
+        - VO_mol_scale
+        - log_X_cb_H2O(c)
+        - log_Pbase_H2O(c)
+        - fsed
+        - log_kzz
+        - sigma_lnorm
+        - mixture_fraction
+        - Cushing_scale_factor_g
+        - bfactor_noise_gemini
+      pressure_scaling: 10
+      pressure_simple: 100
+      pressure_width: 3
+      scale: 1.0e5
+      N_nodes: 10
+      N_data_sets: 9.0
+      D_pl: 9.9
+      AMR: false
+      do_scat_emis: false
+      contribution: true
+      PT_plot_mode: false
+      conv: true
+  
   cloudfree_gemini:
     type: simulators.simulator.Simulator
     kwargs:
@@ -269,6 +405,76 @@ simulator:
       conv: true
       a: 4.9
       b: 19
+
+  cloudy_gemini:
+    type: simulators.simulator.Simulator
+    kwargs: 
+      emission_model:
+        type: utils.emission_model_general.emission_model_diseq
+        kwargs: {}
+      PT_profile:
+        type: utils.PT_profiles.pt_profile
+        kwargs: {}
+      line_species: 
+        - CH4_hargreaves
+        - H2O_Exomol
+        - CO2
+        - CO_all_iso_HITEMP
+        - H2S
+        - NH3
+        - PH3
+        - 15NH3
+        - HCN
+        - TiO_all_Exomol
+        - VO
+      cloud_species: null
+      rayleigh_species: [H2, He]
+      continuum_opacities: [H2-H2, H2-He]
+      names: 
+        - R_pl
+        - mass
+        - T_bottom
+        - temp_node_1
+        - temp_node_2
+        - temp_node_3
+        - temp_node_4
+        - temp_node_5
+        - temp_node_6
+        - temp_node_7
+        - temp_node_8
+        - temp_node_9
+        - H2O_mol_scale
+        - CO2_mol_scale
+        - CO_mol_scale
+        - CH4_mol_scale
+        - NH3_mol_scale
+        - PH3_mol_scale
+        - H2S_mol_scale
+        - 15NH3_mol_scale
+        - HCN_mol_scale
+        - TiO_mol_scale
+        - VO_mol_scale
+        - log_X_cb_H2O(c)
+        - log_Pbase_H2O(c)
+        - fsed
+        - log_kzz
+        - sigma_lnorm
+        - mixture_fraction
+        - Cushing_scale_factor_g
+        - bfactor_noise_gemini
+      pressure_scaling: 10
+      pressure_simple: 100
+      pressure_width: 3
+      scale: 1.0e5
+      N_nodes: 10
+      N_data_sets: 9.0
+      D_pl: 9.9
+      AMR: false
+      do_scat_emis: false
+      contribution: true
+      PT_plot_mode: false
+      conv: true
+
 
 prior:
   distribution:

@@ -38,6 +38,7 @@ class DatasetConfig(BaseModel):
     dataset_path: dict[str, dict[str, InstrumentPath]]  # condition → instrument → path
     pipe: ComponentConfig
     noise: ComponentConfig
+    theta_mapper: Optional[ComponentConfig] = None  # Optional theta mapper for parameter space transformations
 
 class ParameterConfig(BaseModel):
     """Configuration for a single parameter with bounds."""
@@ -179,12 +180,12 @@ class BaseConfig(BaseModel):
             self.training_config.scheduler,
             optimizer=optimizer
         )
-  
+    
+ 
     def build_pipe(self, simulator_dict, obs):
         return self._build_component(self.dataset_config.pipe, 
                                      config=self, 
-                                     simulators=simulator_dict,
-                                    observation=obs)
+                                     )
     
 
     def build_noise(self):
@@ -196,7 +197,8 @@ class BaseConfig(BaseModel):
             name: self._build_component(cfg)
             for name, cfg in self.simulator_config.items()
         }
-   
+    
+    
 
     # def select_at_index(self, i: int) -> 'BaseConfig':
     #     """

@@ -138,6 +138,10 @@ def build_domain_context(simulator_dict, observation, config):
         domain=partial_domain
     )
 
+    theta_mapper = config.build_theta_mapper(
+        domain=partial_domain
+    )
+
     # -----------------------------------
     # final immutable domain
     # -----------------------------------
