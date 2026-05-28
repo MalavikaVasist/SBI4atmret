@@ -14,16 +14,9 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
     ):
         super().__init__(config)
 
-        self._last_merge_metadata = None
-
         self.theta_mapper = theta_mapper
+        self._last_theta_dict = None
     
-    def _extract_simulator_names(self):
-        simulator_names = {}
-        for sim_name, simulator in self.domain.simulator_dict:
-            simulator_names[sim_name] = simulator.names
-        return simulator_names 
-
 
     def modify_spec(self, batch_dict):
         cf = batch_dict["cloudfree"]
@@ -67,32 +60,13 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
 
         return batch_dict
         
+    def forward(self, batch_dict: dict):
 
-    def build_input(self, batch_dict):
+        batch_dict = self.modify_spec(batch_dict)
+        batch_dict = self.modify_theta(batch_dict)
 
-        cf = batch_dict["cloudfree"]
+        return batch_dict
 
-        thetam, x   = cf["miri"]
-        thetag, xg = cf["gemini"]
-        thetah, xh = cf["hst"]
-
-        ###modify spec and theta
-
-        x = self.merge_spec(x, xg, xh)
-        
-        # Use mapper to merge theta and store metadata for later evaluation
-        if self.theta_mapper is not None:
-            theta_dict = {
-                "miri": thetam,
-                "gemini": thetag,
-                "hst": thetah
-            }
-            theta, self._last_merge_metadata = self.theta_mapper.merge(theta_dict)
-        else:
-            # Fallback: old behavior or simple concatenation
-            theta = torch.cat([thetam, thetag, thetah], dim=1)
-
-        return theta, x
 
     def merge_spec(self, x, xg, xh):
          ## merge x
@@ -102,82 +76,37 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
 
         return x
     
-    def merge_theta(self, thetam, thetag, thetah):
-        """
-        DEPRECATED: Use theta_mapper.merge() instead.
-        Kept for backward compatibility.
-        """
-        if self.theta_mapper is None:
-            raise RuntimeError("theta_mapper not initialized. Check config.theta_mapper settings.")
-        
-        theta_dict = {"miri": thetam, "gemini": thetag, "hst": thetah}
-        theta, metadata = self.theta_mapper.merge(theta_dict)
-        self._last_merge_metadata = metadata
-        return theta
+    def merge_theta(self, theta_dict):
+        return self.theta_mapper.merge_theta(theta_dict)   
 
-    def split_theta(self, theta_posterior):
-        """
-        Split posterior theta samples back to simulator-specific thetas for evaluation.
-        
-        MUST call build_input() first during training to establish metadata.
-        Or pass metadata explicitly if evaluating independently.
-        
-        Args:
-            theta_posterior: [B, D_global] posterior samples from the network
-            
-        Returns:
-            Dict mapping instrument names to simulator-specific parameters
-        """
-        if self.theta_mapper is None:
-            raise RuntimeError("theta_mapper not initialized. Check config.theta_mapper settings.")
-        
-        if self._last_merge_metadata is None:
-            raise RuntimeError(
-                "Merge metadata not available. Call build_input() first during training, "
-                "or use theta_mapper.split() directly with metadata."
-            )
-        return self.theta_mapper.split(theta_posterior, self._last_merge_metadata)
-    
-    def evaluate_posterior_predictive(self, theta_posterior, simulators_dict):
-        """
-        Generate posterior predictive samples from posterior theta samples.
-        
-        Typical usage during evaluation:
-            pipe = MiriGeminiHSTcloudfreePipe(config)
-            # ... train network ...
-            
-            theta_posterior = posterior.sample((10000,))  # 10k posterior samples
-            spec_predictive = pipe.evaluate_posterior_predictive(
-                theta_posterior, 
-                {"miri": miri_sim, "gemini": gemini_sim, "hst": hst_sim}
-            )
-        
-        Args:
-            theta_posterior: [B, D_global] posterior samples
-            simulators_dict: Dict with keys "miri", "gemini", "hst" containing simulator functions
-            
-        Returns:
-            Dict with keys "miri", "gemini", "hst" containing simulated spectra [B, D]
-        """
-        # Split theta back to simulator-specific parameters
-        theta_dict = self.split_theta(theta_posterior)
-        
-        # Run simulators independently
-        specs = {
-            inst: simulators_dict[inst](theta_dict[inst])
-            for inst in theta_dict.keys()
+    def build_input(self, batch_dict):
+
+        cf = batch_dict["cloudfree"]
+
+        thetam, xm = cf["miri"]
+        thetag, xg = cf["gemini"]
+        thetah, xh = cf["hst"]
+
+        x = self.merge_spec(xm, xg, xh)
+
+        theta_dict = {
+            "miri": thetam,
+            "gemini": thetag,
+            "hst": thetah,
         }
-        
-        return specs
 
+        theta = self.theta_mapper.merge_theta(theta_dict)
 
-    def forward(self, batch_dict: dict):
+        # store full dict for evaluation consistency
+        self._last_theta_dict = theta_dict
 
-        batch_dict = self.modify_spec(batch_dict)
-        batch_dict = self.modify_theta(batch_dict)
+        return theta, x
 
-        return batch_dict
+    def split_theta(self, theta_post):
+        return self.theta_mapper.split_theta(theta_post)
 
+    def split_spec(self, x):
+        return self.domain.observation._get_observation_dict(full_flux=x.cpu().numpy())
 
 
 # experiment = Experiment(

@@ -167,7 +167,8 @@ class ConsistencyEvaluator(BaseEvaluator):
     # =====================================================
 
 
-    def evaluate_posterior_predictive(self, theta_posterior):
+
+    def evaluate_posterior_predictive(self, theta_posterior, simulators_dict):
         """
         Generate posterior predictive samples from posterior theta samples.
         
@@ -189,16 +190,17 @@ class ConsistencyEvaluator(BaseEvaluator):
             Dict with keys "miri", "gemini", "hst" containing simulated spectra [B, D]
         """
         # Split theta back to simulator-specific parameters
-        thetam, thetag, thetah = self.domain.pipe.split_theta(theta_posterior)
+        theta_dict = self.split_theta(theta_posterior)
         
         # Run simulators independently
         specs = {
-            "miri": self.domain.simulator_dict["miri"](thetam),
-            "gemini": self.domain.simulator_dict["gemini"](thetag),
-            "hst": self.domain.simulator_dict["hst"](thetah)
+            inst: simulators_dict[inst](theta_dict[inst])
+            for inst in theta_dict.keys()
         }
         
         return specs
+
+
 
     def compute_posterior_predictive(
         self,
