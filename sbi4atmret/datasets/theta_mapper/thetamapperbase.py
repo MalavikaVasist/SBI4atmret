@@ -151,80 +151,77 @@ from typing import Dict, List
 import torch
 
 
-class MiriGeminiHSTThetaMapper:
+class ThetaMapper:
 
     def __init__(self, posterior_names: List[str], domain):
 
-        self.posterior_names = sorted(posterior_names)
+        self.posterior_names = posterior_names
         self.posterior_set = set(posterior_names)
 
         self.domain = domain
+
 
         # ---- SORT INSTRUMENTS (IMPORTANT FIX #0) ----
         self.instrument_names = sorted(domain.simulator_dict.keys())
 
         # ---- simulator names ----
-        self.simulator_names = {
+        self.simulator_param_names = {
             inst: domain.simulator_dict[inst].names
             for inst in self.instrument_names
         }
 
-        # ---- use domain param_index (FIX #4) ----
+        # ---- use domain param_index ----
         self.param_index = domain.param_index
 
         # ---- compute used params (restricted to posterior space) ----
         self.used_params = {
-            inst: sorted([p for p in names if p in self.posterior_set])
-            for inst, names in self.simulator_names.items()
+            inst: [p for p in names if p in self.posterior_set]
+            for inst, names in self.simulator_param_names.items()
         }
 
-        # ---- shared params (sorted deterministic) ----
-        self.shared_params = sorted(
-            set.intersection(*[set(v) for v in self.used_params.values()])
-        )
+        # ---- shared params (sorted as simulator names) ----
+        intersection_set = set.intersection(*[set(v) for v in self.used_params.values()])
+        ref_inst = self.instrument_names[0]
 
-        # ---- instrument-specific params (sorted deterministic) ----
+        self.shared_params = [
+            p for p in self.simulator_param_names[ref_inst]
+            if p in intersection_set
+        ]
+
+        # ---- instrument-specific params (sorted as simulator names) ----
         self.inst_specific = {
-            inst: sorted([
+            inst: [
                 p for p in self.used_params[inst]
                 if p not in self.shared_params
-            ])
+            ]
             for inst in self.instrument_names
         }
+
+        self.posterior_index = {p: i for i, p in enumerate(posterior_names)}
+        self.n_posterior = len(posterior_names)
 
     # =========================================================
     # MERGE
     # =========================================================
 
     def merge_theta(self, theta_dict: Dict[str, torch.Tensor]):
-        '''
-        input:
-        theta_dict: {inst: theta_tensor} where each tensor is [B, D_inst] - order same as simulator.names
-        returns:
-        merged_theta: [B, D_posterior] concatenated parameters in order of sorted posterior names - sorted(shared_params) + sorted(instA_specific_params) + sorted(instB_specific_params) + ...
-        where instA, instB is sorted too 
-        '''
+        B = next(iter(theta_dict.values())).shape[0]
+        device = next(iter(theta_dict.values())).device
+        dtype = next(iter(theta_dict.values())).dtype
 
+        theta = torch.zeros((B, self.n_posterior), device=device, dtype=dtype)
 
-        first_inst = self.instrument_names[0]
-
-        # ---- shared block ----
-        shared_idx = [self.param_index[first_inst][p] for p in self.shared_params]
-        shared = theta_dict[first_inst][:, shared_idx]
-
-        parts = [shared]
-
-        # ---- instrument-specific blocks ----
         for inst in self.instrument_names:
+            full_names = self.simulator_param_names[inst]
 
-            spec = self.inst_specific[inst]
-            if not spec:
-                continue
+            for j, name in enumerate(full_names):
+                if name not in self.posterior_index:
+                    continue
 
-            idx = [self.param_index[inst][p] for p in spec]
-            parts.append(theta_dict[inst][:, idx])
+                theta[:, self.posterior_index[name]] = theta_dict[inst][:, j]
 
-        return torch.cat(parts, dim=1)
+        return theta
+
 
     # =========================================================
     # SPLIT
@@ -234,8 +231,8 @@ class MiriGeminiHSTThetaMapper:
 
         '''        
         input:
-        merged_theta: [B, D_posterior] concatenated parameters in order of sorted posterior names - sorted(shared_params) + sorted(instA_specific_params) + sorted(instB_specific_params) + ...
-        where instA, instB is sorted too 
+        merged_theta: [B, D_posterior] concatenated parameters in order of simulator.names - shared_params + instA_specific_params + instB_specific_params + ...
+        where instA, instB is sorted lexicographically
         returns:
         theta_dict: {inst: theta_tensor} where each tensor is [B, D_inst] - order same as simulator.names
         '''
@@ -254,7 +251,7 @@ class MiriGeminiHSTThetaMapper:
 
         for inst in self.instrument_names:
 
-            full_names = self.simulator_names[inst]
+            full_names = self.simulator_param_names[inst]
 
             inst_theta = torch.zeros(
                 batch_size,

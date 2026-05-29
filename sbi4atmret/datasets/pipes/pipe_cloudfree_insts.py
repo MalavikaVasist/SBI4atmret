@@ -1,7 +1,7 @@
 
 from PipeBase import BasePipe
 from sbi4atmret.utils.general import transform_uniform
-from sbi4atmret.datasets.theta_mapper.theta_mapping_metadata import MiriGeminiHSTThetaMapper
+from sbi4atmret.datasets.theta_mapper.thetamapperbase import BaseThetaMapper
 import torch
 import numpy as np
 from typing import Optional, Dict, Any, Callable
