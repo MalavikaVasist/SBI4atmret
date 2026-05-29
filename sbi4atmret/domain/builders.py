@@ -25,7 +25,7 @@ def build_domain_context(simulator_dict, observation, config):
     Maps parameter name → column index in theta
     '''
     
-    param_index = {
+    sim_param_index = {
         simname: {
             name: i for i, name in enumerate(sim.names)
         }
@@ -114,7 +114,7 @@ def build_domain_context(simulator_dict, observation, config):
         pipe=None,
         noise=None,
 
-        param_index=param_index,
+        sim_param_index=sim_param_index,
 
         sim_wlens=sim_wlens,
         obs_wlens=obs_wlens,
@@ -153,7 +153,7 @@ def build_domain_context(simulator_dict, observation, config):
         pipe=pipe,
         noise=noise,
 
-        param_index=param_index,
+        sim_param_index=sim_param_index,
 
         sim_wlens=sim_wlens,
         obs_wlens=obs_wlens,

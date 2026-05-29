@@ -42,8 +42,8 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
         thetah, xh = cf["hst"]
 
 
-        idxg = self.domain.param_index["cloudfree_gemini"]["bfactor_noise_g"]
-        idxh = self.domain.param_index["cloudfree_hst"]["bfactor_noise_h"]
+        idxg = self.domain.sim_param_index["cloudfree_gemini"]["bfactor_noise_g"]
+        idxh = self.domain.sim_param_index["cloudfree_hst"]["bfactor_noise_h"]
 
         thetag[:, idxg] = transform_uniform(
             thetag[:, idxg], -17, -11, -15, -7
@@ -90,12 +90,11 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
         x = self.merge_spec(xm, xg, xh)
 
         theta_dict = {
-            "miri": thetam,
-            "gemini": thetag,
-            "hst": thetah,
-        }
+                    inst: cf[inst][0]
+                    for inst in self.theta_mapper.instrument_names
+                }
 
-        theta = self.theta_mapper.merge_theta(theta_dict)
+        theta = self.merge_theta(theta_dict)
 
         # store full dict for evaluation consistency
         self._last_theta_dict = theta_dict
