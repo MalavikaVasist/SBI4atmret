@@ -60,15 +60,13 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
 
         return batch_dict
         
-    def forward(self, batch_dict: dict):
+    def merge_spec(self, batch_dict):
+        ## spec
+        x_dict = {
+            inst: batch_dict[inst][1]
+            for inst in self.theta_mapper.instrument_names
+        }
 
-        batch_dict = self.modify_spec(batch_dict)
-        batch_dict = self.modify_theta(batch_dict)
-
-        return batch_dict
-
-
-    def merge_spec(self, x_dict):
          ## merge x
         xinst = torch.hstack((x_dict["cloudfree_hst"], x_dict["cloudfree_gemini"]))[:,self.domain.unsort_index]
         x = torch.hstack((xinst, x_dict["cloudfree_miri"]))
@@ -76,37 +74,6 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
 
         return x
     
-    def merge_theta(self, theta_dict):
-        return self.theta_mapper.merge_theta(theta_dict)   
-
-    def build_input(self, batch_dict):
-
-        # cf = batch_dict["cloudfree"]
-
-        ## spec
-        x_dict = {
-            inst: batch_dict[inst][1]
-            for inst in self.theta_mapper.instrument_names
-        }
-        x = self.merge_spec(x_dict)
-
-        ## theta
-        theta_dict = {
-                    inst: batch_dict[inst][0]
-                    for inst in self.theta_mapper.instrument_names
-                }
-        theta = self.merge_theta(theta_dict)
-
-        # store full dict for evaluation consistency
-        self._last_theta_dict = theta_dict
-
-        return theta, x
-
-    def split_theta(self, theta_post):
-        return self.theta_mapper.split_theta(theta_post)
-
-    def split_spec(self, x):
-        return self.domain.observation._get_observation_dict(full_flux=x.cpu().numpy())
 
 
 # experiment = Experiment(

@@ -20,22 +20,13 @@ observation:
 dataset:
   D: 7.34
   shuffle: true
-  # order: ["miri", "gemini", "hst"] ## important for pipe functions
   dataset_path:
-    cloudfree:
-      miri:
+    cloudfree_miri:
         path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI/cloudfree/
-      gemini:
-        path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/GEMINI/cloudfree/
-      hst:
-        path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudfree/
-    # cloudy:
-    #   miri:
-    #     path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI/cloudfree/
-    #   gemini:
-    #     path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/GEMINI/cloudfree/
-    #   hst:
-    #     path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudfree/
+    cloudfree_gemini:
+      path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/GEMINI/cloudfree/
+    cloudfree_hst:
+      path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudfree/
   pipe:
     type: pipes.pipe_HST_Gemini_MIRI_cloudfree.MiriGeminiHSTPipe
     kwargs:
@@ -434,8 +425,6 @@ training:
   device: cpu
   checkpoint_interval: 100
   output_dir: JWST/runs/WISEJ1738/model_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI+HST+Gemini/cloudfree/
-
-
 
 wandb:
   project: WISE1738

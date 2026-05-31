@@ -36,10 +36,9 @@ class BasePipe:
     #     xx = np.stack([Data.convolve(wlen_hstsim, x, 130) for x in xh])
     #     flux_rebinned = torch.stack([torch.from_numpy(rebin_give_width(wlen_hstsim, x, self.wlen, wlen_bins)) for x in xx])
         xx = Data.convolve(wlen_hstsim, xh, 130)
-        flux_rebinned = torch.from_numpy(self._rebin_give_width(wlen_hstsim, xx, obs_wlen_hst, wlen_bins))
+        flux_rebinned = torch.from_numpy(rebin_give_width(wlen_hstsim, xx, obs_wlen_hst, wlen_bins))
         return flux_rebinned
        
-
     @property
     def param_index(self):
         return self.domain.param_index
@@ -51,11 +50,11 @@ class BasePipe:
         return self.forward(*batches)
     
     def modify_spec(self, batch_dict):
-        return NotImplementedError
+        raise NotImplementedError
     
 
     def modify_theta(self, batch_dict):
-        return NotImplementedError
+        raise NotImplementedError
 
 
     def forward(self, batch_dict: dict):
@@ -64,18 +63,37 @@ class BasePipe:
         batch_dict = self.modify_theta(batch_dict)
 
         return batch_dict 
-
-    def build_input(self, batch_dict):
-        raise NotImplementedError
     
     def merge_spec(self, spectra):
         raise NotImplementedError
     
-    def merge_theta(self, parameters):
-        raise NotImplementedError
+    def merge_theta(self, batch_dict):
+        ## theta
+        theta_dict = {
+                    inst: batch_dict[inst][0]
+                    for inst in self.theta_mapper.instrument_names
+                }
+        theta = self.theta_mapper.merge_theta(theta_dict)
 
-    def split_theta(self, theta):
-        raise NotImplementedError
+        # store full dict for evaluation consistency
+        self._last_theta_dict = theta_dict
+
+        return theta
+
+    def build_input(self, batch_dict):
+
+        x = self.merge_spec(batch_dict)
+        theta = self.merge_theta(batch_dict)
+        
+        return theta, x
+
+
+    def split_theta(self, theta_post):
+        return self.theta_mapper.split_theta(theta_post)
+
+    def split_spec(self, x):
+        return self.domain.observation._get_observation_dict(full_flux=x.cpu().numpy())
+
 
 
     

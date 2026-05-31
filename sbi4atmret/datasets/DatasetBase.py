@@ -42,26 +42,20 @@ class Dataset:
             shuffle=shuffle
         )
 
-    def return_dataloaders_dict(self) -> Dict[str, Dict[str, H5Dataset]]:
 
+    def return_dataloaders_dict(self) -> Dict[str, Dict[str, H5Dataset]]:
         """
-        Returns:
-            {train:{
-                cloudfree: {
-                    "miri": loader,
-                    "gemini": loader,
-                    "hst": loader
-                },
-                cloudy :{
-                    "miri": loader,
-                    "gemini": loader,
-                    "hst": loader
-                },
-            
+        Returns
+
+        {
+            "train": {
+                "cloudfree_miri": loader,
+                "cloudfree_gemini": loader,
+                "cloudfree_hst": loader,
+            },
             "valid": {...},
             "test": {...}
-            }}
-
+        }
         """
 
         dataset_paths = self.dataset_config.dataset_path
@@ -73,89 +67,61 @@ class Dataset:
         for split in ["train", "valid", "test"]:
             dataloaders[split] = {}
 
-            for condition, instruments in dataset_paths.items():
+            for dataset_name, dataset_cfg in dataset_paths.items():
+                loader = self._build_single_loader(
+                    datapath=dataset_cfg.path,
+                    split=split,
+                    batch_size=batch_size if split != "test" else 16,
+                    shuffle=shuffle if split != "test" else False,
+                )
 
-                # initialize condition inside split
-                if condition not in dataloaders[split]:
-                    dataloaders[split][condition] = {}
-
-                for instrument_name, inst_cfg in instruments.items():
-                    datapath = inst_cfg.path
-
-                    loader = self._build_single_loader(
-                        datapath=datapath,
-                        split=split,
-                        batch_size=batch_size if split != "test" else 16,
-                        shuffle=shuffle if split != "test" else False
-                    )
-
-                    dataloaders[split][condition][instrument_name] = loader
+                dataloaders[split][dataset_name] = loader
 
         return dataloaders
 
+
+    @staticmethod
     def flatten_loaders(loaders_dict):
         """
-        train/test/valid loaders 
-        input: 
-        loaders_dict= 
-                        {"cloudfree": {
-                                "miri": "loader".
-                                "gemini": "loader",
-                                "hst": "loader"
-                            }
-                        "cloudy": {
-                                "miri": "loader",
-                                "gemini": "loader",
-                                "hst": "loader"
-                            }
-                        }
+        Input:
+            {
+                "cloudfree_miri": loader,
+                "cloudfree_gemini": loader,
+                "cloudfree_hst": loader
+            }
 
-        returns :
-        keys : (cloudfree, gemini), (cloudfree, hst)...('cloudy', 'gemini'),.... alphabetically ordered
-        loaders : loader, loader, ......
+        Returns:
+            keys    = ["cloudfree_gemini", "cloudfree_hst", "cloudfree_miri"]
+            loaders = [loader, loader, loader]
         """
-        keys = []
-        loaders = []
 
-
-        for outer_k in sorted(loaders_dict.keys()):
-            for inner_k in sorted(loaders_dict[outer_k].keys()):
-                keys.append((outer_k, inner_k))
-                loaders.append(loaders_dict[outer_k][inner_k])
-
-
-        # for outer_k, inner_dict in loaders_dict.items(): 
-        #     for inner_k, loader in inner_dict.items(): 
-        #         keys.append((outer_k, inner_k)) 
-        #         loaders.append(loader)
+        keys = sorted(loaders_dict.keys())
+        loaders = [loaders_dict[k] for k in keys]
 
         return keys, loaders
 
+    @staticmethod
     def reconstruct_batch(keys, batches):
         """
-        args: 
-        keys : (cloudfree, gemini), (cloudfree, hst)...('cloudy', 'gemini'),...
-        batches : batch, batch,..........
+        Args:
+            keys:
+                ["cloudfree_gemini",
+                "cloudfree_hst",
+                "cloudfree_miri"]
 
-        returns: one batch from each loader dict
-        batch_dict = {
-                    "cloudfree": {
-                            "gemini":  (theta,x),
-                            "hst":  (theta,x), 
-                            "miri": (theta,x)
-                        }
-                    "cloudy": {
-                            "gemini":  (theta,x),
-                            "hst":  (theta,x),
-                            "miri":  (theta,x)
-                        
-                        }
+            batches:
+                [batch1, batch2, batch3]
+
+        Returns:
+            {
+                "cloudfree_gemini": batch1,
+                "cloudfree_hst": batch2,
+                "cloudfree_miri": batch3
+            }
         """
-        batch_dict = {}
 
-        for (outer_k, inner_k), batch in zip(keys, batches):
-            batch_dict.setdefault(outer_k, {})[inner_k] = batch
-
-        return batch_dict
-
+        return {
+            key: batch
+            for key, batch in zip(keys, batches)
+        }
 

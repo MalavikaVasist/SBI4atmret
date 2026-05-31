@@ -35,7 +35,7 @@ class DatasetConfig(BaseModel):
     D: float
     shuffle: bool
     order: List[str]
-    dataset_path: dict[str, dict[str, InstrumentPath]]  # condition → instrument → path
+    dataset_path: dict[str, InstrumentPath]  # instrument → path
     pipe: ComponentConfig
     noise: ComponentConfig
     theta_mapper: Optional[ComponentConfig] = None  # Optional theta mapper for parameter space transformations
