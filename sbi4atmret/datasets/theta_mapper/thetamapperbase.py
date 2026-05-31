@@ -10,11 +10,15 @@ class ThetaMapper:
     simulator_param_names =
         {instrument: [param names in simulator]} => {inst: [p]}
 
-    sim_valid_j =
+    sim_j =
         simulator-space column indices => {inst: tensor([j])}
 
-    sim_valid_i =
+    sim_i =
         corresponding posterior-space column indices => {inst: tensor([i])}
+
+    merge_j =   sim_j columns that are in posterior => {inst: tensor([j])}
+
+    merge_i =   corresponding sim_i columns => {inst: tensor([i])}
 
     n_total = total number of params in posterior
     '''
@@ -32,13 +36,28 @@ class ThetaMapper:
         self.posterior_index = {p: i for i, p in enumerate(self.posterior_names)}
         self.n_total = len(self.posterior_names)     
 
-        self.sim_valid_j = {}
-        self.sim_valid_i = {}
+        self.indices = {
+                        "sim_i": {},
+                        "sim_j": {},
+                        "merge_i": {},
+                        "merge_j": {},
+                    }
 
-        self.sim_valid_j_device = {}
-        self.sim_valid_i_device = {}
+        self.indices_device = {
+                        "sim_i": {},
+                        "sim_j": {},
+                        "merge_i": {},
+                        "merge_j": {},
+                    }
+
+        claimed = torch.zeros(self.n_total, dtype=torch.bool)
 
         for inst in self.instrument_names:
+
+            self.indices_device["sim_i"][inst] = {}
+            self.indices_device["sim_j"][inst] = {}
+            self.indices_device["merge_i"][inst] = {}
+            self.indices_device["merge_j"][inst] = {}
 
             idx = [
                 self.posterior_index.get(p, None)
@@ -49,34 +68,39 @@ class ThetaMapper:
 
             if valid:
                 j_idx, i_idx = zip(*valid)
+                j_idx = torch.tensor(j_idx, dtype=torch.long)
+                i_idx = torch.tensor(i_idx, dtype=torch.long)
 
-                self.sim_valid_j[inst] = torch.tensor(j_idx, dtype=torch.long)
-                self.sim_valid_i[inst] = torch.tensor(i_idx, dtype=torch.long)
+                self.indices["sim_i"][inst] = i_idx
+                self.indices["sim_j"][inst] = j_idx
+
+                keep = ~claimed[i_idx]
+                self.indices["merge_i"][inst] = i_idx[keep]
+                self.indices["merge_j"][inst] = j_idx[keep]
+                claimed[i_idx[keep]] = True
+
+
             else:
-                self.sim_valid_j[inst] = torch.empty(0, dtype=torch.long)
-                self.sim_valid_i[inst] = torch.empty(0, dtype=torch.long)
+                self.indices["merge_i"][inst] = torch.empty(0, dtype=torch.long)
+                self.indices["merge_j"][inst] = torch.empty(0, dtype=torch.long)
+                self.indices["sim_i"][inst] = torch.empty(0, dtype=torch.long)
+                self.indices["sim_j"][inst] = torch.empty(0, dtype=torch.long)
 
-            self.sim_valid_j_device[inst] = {}
-            self.sim_valid_i_device[inst] = {}
+    def _get_indices(self, kind, inst, device):
 
-    def _get_device_indices(self, inst, device):
+        if not isinstance(device, torch.device):
+            device = torch.device(device)
 
-        # create cache dicts if first time using this device
-        if device not in self.sim_valid_j_device[inst]:
+        if device not in self.indices_device[kind]:
+            self.indices_device[kind][device] = {}
 
-            self.sim_valid_j_device[inst][device] = (
-                self.sim_valid_j[inst].to(device)
+        if inst not in self.indices_device[kind][device]:
+            self.indices_device[kind][device][inst] = (
+                self.indices[kind][inst].to(device)
             )
 
-            self.sim_valid_i_device[inst][device] = (
-                self.sim_valid_i[inst].to(device)
-            )
+        return self.indices_device[kind][device][inst]
 
-        return (
-            self.sim_valid_j_device[inst][device],
-            self.sim_valid_i_device[inst][device]
-        )
-        
     def merge_theta(self, theta_dict):
 
         first = next(iter(theta_dict.values()))
@@ -87,43 +111,30 @@ class ThetaMapper:
 
         merged = torch.zeros((B, self.n_total), device=device, dtype=dtype)
 
-        filled = torch.zeros(self.n_total, dtype=torch.bool, device=device)
-
         for inst in self.instrument_names:
+            j = self._get_indices("merge_j", inst, device)
+            i = self._get_indices("merge_i", inst, device)
 
-             # get cached device tensors
-            j_idx, i_idx = self._get_device_indices(inst, device)
-
-            keep = ~filled[i_idx]
-
-            if keep.any():
-
-                j = j_idx[keep]
-                i = i_idx[keep]
-
-                merged[:, i] = theta_dict[inst][:, j]
-
-                filled[i] = True
+            merged[:, i] = theta_dict[inst][:, j]
 
         return merged
-    
+
 
     def split_theta(self, merged_theta):
 
         B = merged_theta.shape[0]
         device = merged_theta.device
-        dtype = merged_theta.dtype
 
         theta_dict = {}
 
         for inst in self.instrument_names:
 
-            D_inst = len(self.simulator_param_names[inst])
+            i = self._get_indices("sim_i", inst, device)
+            j = self._get_indices("sim_j", inst, device)
 
-            inst_theta = torch.zeros((B, D_inst), device=device, dtype=dtype)
+            D_inst = j.numel()
 
-            # get cached device tensors
-            j, i = self._get_device_indices(inst, device)
+            inst_theta = merged_theta.new_zeros((B, D_inst))
 
             inst_theta[:, j] = merged_theta[:, i]
 
