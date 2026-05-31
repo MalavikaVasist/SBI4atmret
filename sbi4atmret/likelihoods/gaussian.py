@@ -4,8 +4,8 @@ from torch import Tensor
 
 class GaussianNoise(BaseNoise):
     
-    def __init__(self, config):
-        super().__init__(config)
+    def __init__(self, domain):
+        super().__init__(domain)
 
     
     def gaussian_noise(self, sigma, x):

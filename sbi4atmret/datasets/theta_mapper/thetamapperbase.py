@@ -2,7 +2,7 @@ from typing import List, Dict, Tuple
 import torch
 
 
-class ThetaMapper:
+class BaseThetaMapper:
     """
     CPU-only mapper.
 
@@ -22,7 +22,7 @@ class ThetaMapper:
             for inst in self.instrument_names
         }
 
-        self.posterior_names = self.domain.pipe.theta_mapper.posterior_names
+        self.posterior_names = self.domain.pipe.posterior_names
         self.posterior_index = {p: i for i, p in enumerate(self.posterior_names)}
 
         self.n_total = len(self.posterior_names)

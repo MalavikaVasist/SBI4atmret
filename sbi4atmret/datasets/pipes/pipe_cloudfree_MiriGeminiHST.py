@@ -1,46 +1,43 @@
 
+from typing import Callable
+
 from PipeBase import BasePipe
 from sbi4atmret.utils.general import transform_uniform
-from sbi4atmret.datasets.theta_mapper.thetamapperbase import BaseThetaMapper
 import torch
 import numpy as np
-from typing import Optional, Dict, Any, Callable
 
 
 class MiriGeminiHSTcloudfreePipe(BasePipe):
     def __init__(self,
-                config,
-                theta_mapper: Optional[Callable] = None,
+                posterior_names, 
+                partial_domain, 
     ):
-        super().__init__(config)
+        super().__init__(posterior_names)
 
-        self.theta_mapper = theta_mapper
+        self.domain = partial_domain
         self._last_theta_dict = None
     
 
     def modify_spec(self, batch_dict):
-        cf = batch_dict["cloudfree"]
-        theta, x   = cf["miri"]
-        thetag, xg = cf["gemini"]
-        thetah, xh = cf["hst"]
+        theta, x   = batch_dict["cloudfree_miri"]
+        thetag, xg = batch_dict["cloudfree_gemini"]
+        thetah, xh = batch_dict["cloudfree_hst"]
 
         ## modify spectrum
         x  = x[:, 1:1299]
         xg = xg[:, self._mask]
         xh = self._rebinit(xh)
 
-        cf["miri"]   = (theta, x)
-        cf["gemini"] = (thetag, xg)
-        cf["hst"] = (thetah, xh)
+        batch_dict["cloudfree_miri"]   = (theta, x)
+        batch_dict["cloudfree_gemini"] = (thetag, xg)
+        batch_dict["cloudfree_hst"] = (thetah, xh)
 
         return batch_dict
     
     def modify_theta(self, batch_dict):
-        cf = batch_dict["cloudfree"]
 
-        thetag, xg = cf["gemini"]
-        thetah, xh = cf["hst"]
-
+        thetag, xg = batch_dict["cloudfree_gemini"]
+        thetah, xh = batch_dict["cloudfree_hst"]
 
         idxg = self.domain.sim_param_index["cloudfree_gemini"]["bfactor_noise_g"]
         idxh = self.domain.sim_param_index["cloudfree_hst"]["bfactor_noise_h"]
@@ -55,8 +52,8 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
         ## flipping to get diff bfactor
         thetahf = torch.flip(thetah, dims=(0,))
 
-        cf["gemini"]   = (thetag, xg)
-        cf["hst"] = (thetahf, xh)
+        batch_dict["cloudfree_gemini"]   = (thetag, xg)
+        batch_dict["cloudfree_hst"] = (thetahf, xh)
 
         return batch_dict
         
@@ -74,7 +71,6 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
 
         return x
     
-
 
 # experiment = Experiment(
 #     theta_mapper=CloudfreeThetaMapper(),

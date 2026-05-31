@@ -3,8 +3,7 @@ from torch import Tensor
 
 
 class BaseNoise:
-    def __init__(self, config, domain):
-        self.config = config
+    def __init__(self, domain):
         self.domain = domain
 
     def __call__(self, batch_dict):

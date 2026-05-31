@@ -128,17 +128,13 @@ def build_domain_context(simulator_dict, observation, config):
 
     # -----------------------------------
     # build domain-dependent components
-    # -----------------------------------
+    # ----------------------------------- 
 
     pipe = config.build_pipe(
         domain=partial_domain
     )
 
     noise = config.build_noise(
-        domain=partial_domain
-    )
-
-    theta_mapper = config.build_theta_mapper(
         domain=partial_domain
     )
 

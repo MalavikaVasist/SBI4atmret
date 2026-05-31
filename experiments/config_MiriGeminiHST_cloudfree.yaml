@@ -28,12 +28,9 @@ dataset:
     cloudfree_hst:
       path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudfree/
   pipe:
-    type: pipes.pipe_HST_Gemini_MIRI_cloudfree.MiriGeminiHSTPipe
+    type: pipes.pipe_cloudfree_MiriGeminiHST.MiriGeminiHSTcloudfreePipe
     kwargs:
-      theta_mapper:
-        type: theta_mapper.thetamapper_mgh.MiriGeminiHSTThetaMapper
-        kwargs: 
-          posterior_names :
+      posterior_names :
             - R_pl
             - mass
             - T_bottom

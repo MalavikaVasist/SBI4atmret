@@ -182,15 +182,15 @@ class BaseConfig(BaseModel):
         )
     
  
-    def build_pipe(self, simulator_dict, obs):
+    def build_pipe(self, domain):
         return self._build_component(self.dataset_config.pipe, 
-                                     config=self, 
+                                     domain = domain
                                      )
     
 
-    def build_noise(self):
+    def build_noise(self, domain):
         return self._build_component(self.dataset_config.noise, 
-                                     config=self)
+                                     domain=domain)
     
     def build_simulators(self):
         return {

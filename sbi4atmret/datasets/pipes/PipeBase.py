@@ -4,11 +4,17 @@ import numpy as np
 from petitRADTRANS.retrieval.rebin_give_width import rebin_give_width
 from petitRADTRANS.retrieval.data import Data
 
+from sbi4atmret.datasets.theta_mapper.thetamapperbase import BaseThetaMapper
+
+
 class BasePipe:
-    def __init__(self, config, domain):
-        self.config = config
-        self.domain = domain 
+    def __init__(self, domain):
+        self.domain = domain
+        self.posterior_names = domain.pipe.posterior_names
+        self.theta_mapper = BaseThetaMapper(domain)
+
         self._mask = self._build_mask()
+
         
     def _build_mask(self):
         ## Masking gaps in observation
@@ -95,38 +101,3 @@ class BasePipe:
         return self.domain.observation._get_observation_dict(full_flux=x.cpu().numpy())
 
 
-
-    
-    
-
-
-
-    def theta_to_dict(self, theta):
-        names = self.config.simulator.names
-
-        if theta.shape[-1] != len(names):
-            raise ValueError(
-                f"Theta dim {theta.shape[-1]} != number of names {len(names)}"
-            )
-
-        # Case 1: batched [B, D]
-        if theta.ndim == 2:
-            return {name: theta[:, i] for i, name in enumerate(names)}
-
-        # Case 2: single sample [D]
-        elif theta.ndim == 1:
-            return {name: theta[i] for i, name in enumerate(names)}
-
-        else:
-            raise ValueError(f"Unsupported theta shape: {theta.shape}")
-    
-
-    def dict_to_theta(self, theta_dict):
-        names = self.config.simulator.names
-        values = [theta_dict[name] for name in names]
-
-        # check if batched
-        if values[0].ndim == 1:
-            return torch.stack(values, dim=-1)   # [B, D]
-        else:
-            return torch.tensor(values)          # [D]
