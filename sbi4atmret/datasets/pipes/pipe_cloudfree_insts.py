@@ -68,11 +68,11 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
         return batch_dict
 
 
-    def merge_spec(self, x, xg, xh):
+    def merge_spec(self, x_dict):
          ## merge x
-        xinst = torch.hstack((xh, xg))[:,self.domain.unsort_index]
-        x = torch.hstack((xinst, x))
-        x = torch.cat([x, xg, xh], dim=-1)
+        xinst = torch.hstack((x_dict["hst"], x_dict["gemini"]))[:,self.domain.unsort_index]
+        x = torch.hstack((xinst, x_dict["miri"]))
+        x = torch.cat([x, x_dict["gemini"], x_dict["hst"]], dim=-1)
 
         return x
     
@@ -83,17 +83,18 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
 
         cf = batch_dict["cloudfree"]
 
-        thetam, xm = cf["miri"]
-        thetag, xg = cf["gemini"]
-        thetah, xh = cf["hst"]
+        ## spec
+        x_dict = {
+            inst: cf[inst][1]
+            for inst in self.theta_mapper.instrument_names
+        }
+        x = self.merge_spec(x_dict)
 
-        x = self.merge_spec(xm, xg, xh)
-
+        ## theta
         theta_dict = {
                     inst: cf[inst][0]
                     for inst in self.theta_mapper.instrument_names
                 }
-
         theta = self.merge_theta(theta_dict)
 
         # store full dict for evaluation consistency
