@@ -9,12 +9,13 @@ import numpy as np
 
 class MiriGeminiHSTcloudfreePipe(BasePipe):
     def __init__(self,
-                posterior_names, 
-                partial_domain, 
-    ):
-        super().__init__(posterior_names)
+                posterior_names: list[str]|None = None, 
+                domain: Callable|None = None ):
+        
+        super().__init__(posterior_names= posterior_names, 
+                         domain = domain)
 
-        self.domain = partial_domain
+        self.domain = domain
         self._last_theta_dict = None
     
 

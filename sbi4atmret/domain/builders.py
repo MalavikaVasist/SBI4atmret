@@ -131,7 +131,7 @@ def build_domain_context(simulator_dict, observation, config):
     # ----------------------------------- 
 
     pipe = config.build_pipe(
-        domain=partial_domain
+        domain = partial_domain
     )
 
     noise = config.build_noise(

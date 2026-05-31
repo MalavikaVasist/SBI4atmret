@@ -8,10 +8,14 @@ from sbi4atmret.datasets.theta_mapper.thetamapperbase import BaseThetaMapper
 
 
 class BasePipe:
-    def __init__(self, domain):
+    def __init__(self, 
+                 domain= None, 
+                 posterior_names=None):
+        
         self.domain = domain
-        self.posterior_names = domain.pipe.posterior_names
-        self.theta_mapper = BaseThetaMapper(domain)
+        self.posterior_names = posterior_names
+        self.theta_mapper = BaseThetaMapper(domain=domain, 
+                                            posterior_names=posterior_names)
 
         self._mask = self._build_mask()
 

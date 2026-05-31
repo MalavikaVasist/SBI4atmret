@@ -11,7 +11,8 @@ class BaseThetaMapper:
     Device transfer happens outside this class.
     """
 
-    def __init__(self, domain):
+    def __init__(self, domain = None, 
+                 posterior_names: List[str]|None = None):
 
         self.domain = domain
 
@@ -22,7 +23,7 @@ class BaseThetaMapper:
             for inst in self.instrument_names
         }
 
-        self.posterior_names = self.domain.pipe.posterior_names
+        self.posterior_names = posterior_names
         self.posterior_index = {p: i for i, p in enumerate(self.posterior_names)}
 
         self.n_total = len(self.posterior_names)
