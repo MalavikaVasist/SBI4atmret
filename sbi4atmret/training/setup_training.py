@@ -12,6 +12,9 @@ from ..datasets.DatasetBase import Dataset
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
+import os
+os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+
 # Setup logging
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

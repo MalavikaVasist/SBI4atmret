@@ -7,6 +7,9 @@ from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 
+from ..coverage import compute_coverage
+from ..consistency import compute_consistency
+
 
 class BaseEvaluator:
 
@@ -15,6 +18,7 @@ class BaseEvaluator:
         model,
         context,
         config,
+        dataset,
     ):
         """
         Initialize the BaseEvaluator.
@@ -29,6 +33,7 @@ class BaseEvaluator:
         self.model = model
         self.context = context
         self.config = config
+        self.dataset = dataset
 
         ## domain components
         self.domain = context.runtime.domain
@@ -58,7 +63,6 @@ class BaseEvaluator:
         # Build posterior
         self.posterior = self.build_posterior()
 
-        # Build posterior
         self.batch_processor = BatchProcessor(
                             dataset=self.dataset,
                             pipe=self.pipe,
@@ -75,7 +79,7 @@ class BaseEvaluator:
 
     def build_posterior(self):
         """Build posterior from the model."""
-        posterior = self.model.flow().to(self.device)
+        posterior = self.model.flow(self.x_obs).to(self.device)
         return posterior
     
     def sampling_from_post(self, x, name, only_returning = True):
@@ -102,7 +106,6 @@ class BaseEvaluator:
     def run_all(self):
         """Run all evaluation methods."""
         self.run_coverage()
-        self.run_sbc()
         self.run_corner()
         self.run_pt_profile()
         self.run_posterior_predictive()
@@ -113,12 +116,6 @@ class BaseEvaluator:
         self.run_all()
 
 
-    # def run_sbc(self):
-    #     """Run SBC (Simulation-Based Calibration) evaluation."""
-    #     from .consistency import compute_sbc
-    #     self.consistency = compute_sbc(
-    #         posterior=self.posterior,
-    #         dataset=self.test_lists,
-    #         config=self.config,
-    #         save_path=self.eval_dir / "sbc.pdf",
-    #     )
+
+    def run_coverage():
+        compute_coverage()
