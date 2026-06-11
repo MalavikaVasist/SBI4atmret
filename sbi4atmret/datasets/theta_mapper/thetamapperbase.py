@@ -12,21 +12,21 @@ class BaseThetaMapper:
     """
 
     def __init__(self, domain = None, 
-                 posterior_names: List[str]|None = None):
+                 posterior_param_names: List[str]|None = None):
 
         self.domain = domain
 
-        self.instrument_names = sorted(domain.simulator_dict.keys())
+        self.simulator_names = sorted(domain.simulator_dict.keys())
 
         self.simulator_param_names = {
             inst: domain.simulator_dict[inst].names
-            for inst in self.instrument_names
+            for inst in self.simulator_names
         }
 
-        self.posterior_names = posterior_names
-        self.posterior_index = {p: i for i, p in enumerate(self.posterior_names)}
+        self.posterior_param_names = posterior_param_names
+        self.posterior_index = {p: i for i, p in enumerate(self.posterior_param_names)}
 
-        self.n_total = len(self.posterior_names)
+        self.n_total = len(self.posterior_param_names)
 
         self.indices = {
             "sim_i": {},
@@ -37,7 +37,7 @@ class BaseThetaMapper:
 
         claimed = torch.zeros(self.n_total, dtype=torch.bool)  
 
-        for inst in self.instrument_names:
+        for inst in self.simulator_names:
 
             idx = [
                 self.posterior_index.get(p, None)
@@ -76,6 +76,16 @@ class BaseThetaMapper:
     # ------------------------------------------------------------
 
     def merge_theta(self, theta_dict):
+        '''
+        input: 
+        theta_dict: {'cloudfree_miri': (B, D_inst), 
+                        'cloudfree_nircam': (B, D_inst), 
+                        ...}
+
+            output:
+            merged_theta: (B, n_total)
+            filled with values from theta_dict
+        '''
 
         first = next(iter(theta_dict.values()))
 
@@ -83,7 +93,7 @@ class BaseThetaMapper:
 
         merged = torch.zeros((B, self.n_total), dtype=first.dtype)
 
-        for inst in self.instrument_names:
+        for inst in self.simulator_names:
 
             j = self.indices["merge_j"][inst]
             i = self.indices["merge_i"][inst]
@@ -93,12 +103,23 @@ class BaseThetaMapper:
         return merged
 
     def split_theta(self, merged_theta):
+        '''
+            Inverse of merge_theta
+            input: 
+            merged_theta: (B, n_total)
+            output:
+            theta_dict: {'cloudfree_miri': (B, D_inst), 
+                        'cloudfree_nircam': (B, D_inst), 
+                        ...}
+            
+            Only fills entries present in self.posterior_param_names
+        '''
 
         B = merged_theta.shape[0]
 
         theta_dict = {}
 
-        for inst in self.instrument_names:
+        for inst in self.simulator_names:
 
             j = self.indices["sim_j"][inst]
             i = self.indices["sim_i"][inst]

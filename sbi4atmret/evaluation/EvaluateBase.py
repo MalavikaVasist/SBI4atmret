@@ -7,8 +7,8 @@ from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 
-from ..coverage import compute_coverage
-from ..consistency import compute_consistency
+from .coverage import CoverageResult
+from .consistency import compute_consistency
 
 
 class BaseEvaluator:
@@ -18,7 +18,6 @@ class BaseEvaluator:
         model,
         context,
         config,
-        dataset,
     ):
         """
         Initialize the BaseEvaluator.
@@ -33,7 +32,6 @@ class BaseEvaluator:
         self.model = model
         self.context = context
         self.config = config
-        self.dataset = dataset
 
         ## domain components
         self.domain = context.runtime.domain
@@ -60,45 +58,44 @@ class BaseEvaluator:
         load_model_state(self.net, checkpoint)
         self.net.to(self.device)
 
-        # Build posterior
-        self.posterior = self.build_posterior()
-
         self.batch_processor = BatchProcessor(
-                            dataset=self.dataset,
                             pipe=self.pipe,
                             noise=self.noise,
                             device=self.device,
                         )
         
         ## sampling from posterior
-        self.x_obs = self.observation.full_observation
+        self.x_obs = torch.from_numpy(self.observation.full_observation).unsqueeze(0).float().to(self.device)
+        self.posterior = self.build_posterior(self.x_obs)
         self.theta = self.sampling_from_post(
-                                        torch.from_numpy(self.x_obs).unsqueeze(0).float().to(self.device), 
-                                        self.eval_dir/'theta.csv', 
-                                        only_returning = False) 
+                                            filename = self.eval_dir/'theta.csv',
+                                            posterior= posterior, 
+                                            only_returning = False) 
 
-    def build_posterior(self):
+
+    def build_posterior(self, x):
         """Build posterior from the model."""
-        posterior = self.model.flow(self.x_obs).to(self.device)
+        posterior = self.net.flow_forward(x).to(self.device)
         return posterior
     
-    def sampling_from_post(self, x, name, only_returning = True):
+    def sampling_from_post(self, filename= None, only_returning = True, posterior= None):
     
         if not only_returning: 
             with torch.no_grad():
                 theta = torch.cat([
-                    self.model.flow(x).sample((2**14,)).cpu()
+                    posterior.sample((2**14,)).cpu()
                     for _ in tqdm(range(2**6))
                 ])
                 theta = theta.squeeze()
+
             ##Saving to file
             theta_numpy = theta.double().numpy() #convert to Numpy array
             df_theta = pd.DataFrame(theta_numpy) #convert to a dataframe
-            df_theta.to_csv( name ,index=False) #save to file
+            df_theta.to_csv( filename ,index=False) #save to file
             return theta
         
         #Then, to reload:
-        df_theta = pd.read_csv(name)
+        df_theta = pd.read_csv(filename)
         theta = df_theta.values
         return torch.from_numpy(theta)
 
@@ -118,4 +115,12 @@ class BaseEvaluator:
 
 
     def run_coverage():
-        compute_coverage()
+        CoverageResult().compute_coverage(plot = True, 
+                                            save_path= self.eval_dir,
+                                            )
+
+    
+    def run_consistency():
+        compute_consistency()
+
+

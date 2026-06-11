@@ -44,7 +44,6 @@ class Trainer:
         self.net.to(self.device)
 
         self.batch_processor = BatchProcessor(
-                                    dataset=self.dataset,
                                     pipe=self.pipe,
                                     noise=self.noise,
                                     device=self.device,
@@ -127,7 +126,8 @@ class Trainer:
         losses = []
 
         for batches in islice(zip(*self.train_loaders), self.config.training_config.gradient_steps_train):
-            theta, x = self.batch_processor.prepare_batch(batches, self.train_keys)
+            batch_dict = self.dataset.reconstruct_batch(self.train_keys, batches)
+            theta, x = self.batch_processor.prepare_batch(batch_dict)
             theta, x  = _to_device(theta), _to_device(x)
 
             self.optimizer.zero_grad()

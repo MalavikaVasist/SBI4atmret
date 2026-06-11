@@ -105,7 +105,7 @@ class ConsistencyEvaluator(BaseEvaluator):
             n_samples=n_posterior_samples,
         )
 
-        predictive_samples = (
+        predictive_dict = (
             self.compute_posterior_predictive(
                 posterior_samples
             )
@@ -113,7 +113,7 @@ class ConsistencyEvaluator(BaseEvaluator):
 
         merged_wavelength, merged_prediction = (
             self.combine_predictive_checks(
-                predictive_samples
+                predictive_dict
             )
         )
 
@@ -134,7 +134,7 @@ class ConsistencyEvaluator(BaseEvaluator):
 
             if save_path is not None:
                 figure.savefig(
-                    save_path,
+                    save_path/ "posterior_predictive.pdf",
                     bbox_inches="tight",
                 )
 
@@ -168,37 +168,37 @@ class ConsistencyEvaluator(BaseEvaluator):
 
 
 
-    def evaluate_posterior_predictive(self, theta_posterior, simulators_dict):
-        """
-        Generate posterior predictive samples from posterior theta samples.
+    # def evaluate_posterior_predictive(self, theta_posterior, simulators_dict):
+    #     """
+    #     Generate posterior predictive samples from posterior theta samples.
         
-        Typical usage during evaluation:
-            pipe = MiriGeminiHSTcloudfreePipe(config)
-            # ... train network ...
+    #     Typical usage during evaluation:
+    #         pipe = MiriGeminiHSTcloudfreePipe(config)
+    #         # ... train network ...
             
-            theta_posterior = posterior.sample((10000,))  # 10k posterior samples
-            spec_predictive = pipe.evaluate_posterior_predictive(
-                theta_posterior, 
-                {"miri": miri_sim, "gemini": gemini_sim, "hst": hst_sim}
-            )
+    #         theta_posterior = posterior.sample((10000,))  # 10k posterior samples
+    #         spec_predictive = pipe.evaluate_posterior_predictive(
+    #             theta_posterior, 
+    #             {"miri": miri_sim, "gemini": gemini_sim, "hst": hst_sim}
+    #         )
         
-        Args:
-            theta_posterior: [B, D_global] posterior samples
-            simulators_dict: Dict with keys "miri", "gemini", "hst" containing simulator functions
+    #     Args:
+    #         theta_posterior: [B, D_global] posterior samples
+    #         simulators_dict: Dict with keys "cloudfree_miri", "cloudfree_gemini", "cloudfree_hst" containing simulator functions
             
-        Returns:
-            Dict with keys "miri", "gemini", "hst" containing simulated spectra [B, D]
-        """
-        # Split theta back to simulator-specific parameters
-        theta_dict = self.split_theta(theta_posterior)
+    #     Returns:
+    #         Dict with keys "cloudfree_miri", "cloudfree_gemini", "cloudfree_hst" containing simulated spectra [B, D]
+    #     """
+    #     # Split theta back to simulator-specific parameters
+    #     theta_dict = self.pipe.split_theta(theta_posterior)
         
-        # Run simulators independently
-        specs = {
-            inst: simulators_dict[inst](theta_dict[inst])
-            for inst in theta_dict.keys()
-        }
+    #     # Run simulators independently
+    #     specs = {
+    #         inst: simulators_dict[inst](theta_dict[inst])
+    #         for inst in theta_dict.keys()
+    #     }
         
-        return specs
+    #     return specs
 
 
 
@@ -209,7 +209,17 @@ class ConsistencyEvaluator(BaseEvaluator):
 
         """
         Simulate spectra from all simulators.
+
+        Returns a dict matching the pipe's batch_dict format:
+            {sim_name: (theta, x)}
+        where theta is (B, D_inst) and x is (B, D_spec).
         """
+
+        # split_theta expects (B, D) — add batch dim if needed
+        if posterior_samples.dim() == 1:
+            posterior_samples = posterior_samples.unsqueeze(0)
+
+        theta_dict = self.pipe.split_theta(posterior_samples)
 
         predictive = {}
 
@@ -217,20 +227,25 @@ class ConsistencyEvaluator(BaseEvaluator):
             self.simulator_dict.items()
         ):
 
-            outputs = []
+            spectra = []
 
-            for theta in tqdm(
-                posterior_samples,
+            for i in tqdm(
+                range(theta_dict[sim_name].shape[0]),
                 desc=f"{sim_name}",
             ):
 
-                output = simulator(
-                    theta.numpy()
+                theta_i = theta_dict[sim_name][i].numpy()
+                output = simulator(theta_i)
+                spectra.append(
+                    torch.from_numpy(output.spectrum).float()
                 )
 
-                outputs.append(output)
+            x = torch.stack(spectra)  # (B, D_spec)
 
-            predictive[sim_name] = outputs
+            predictive[sim_name] = (
+                theta_dict[sim_name],  # (B, D_inst)
+                x,                     # (B, D_spec)
+            )
 
         return predictive
 
@@ -238,61 +253,21 @@ class ConsistencyEvaluator(BaseEvaluator):
     # MERGING
     # =====================================================
 
-    def combine_predictive_checks(
-        self,
-        predictive_samples: dict,
-    ):
-
+    def combine_predictive_checks(self, predictive_dict: dict):
         """
-        Merge all simulator outputs into
-        observation-space ordering.
+        Apply pipe transforms and merge into observation space.
+        Uses batch_processor in eval mode (skips modify_theta).
         """
-
-        merged_spectra = []
-        merged_wavelengths = []
-
-        for sim_name, outputs in (
-            predictive_samples.items()
-        ):
-
-            spectra = np.stack([
-                o.spectrum
-                for o in outputs
-            ])
-
-            wavelength = outputs[0].wavelength
-
-            merged_spectra.append(
-                spectra.mean(axis=0)
-            )
-
-            merged_wavelengths.append(
-                wavelength
-            )
-
-        merged_prediction = np.concatenate(
-            merged_spectra
+        _, x = self.batch_processor.prepare_batch(
+            predictive_dict,
+            mode="eval",
+            add_noise=True,
         )
 
-        merged_wavelength = np.concatenate(
-            merged_wavelengths
-        )
+        merged_wavelength = self.observation.full_wavelength
 
-        # restore observation ordering
-        unsort = self.domain.unsort_index
+        return merged_wavelength, x.cpu().numpy()
 
-        merged_prediction = (
-            merged_prediction[unsort]
-        )
-
-        merged_wavelength = (
-            merged_wavelength[unsort]
-        )
-
-        return (
-            merged_wavelength,
-            merged_prediction,
-        )
 
     # =====================================================
     # PLOTTING
@@ -362,58 +337,4 @@ class ConsistencyEvaluator(BaseEvaluator):
 
 
 
-    
-#     def consistencyplot_MIRI(self):
-#             # wlen = obs_wlen_hst
-#         self.theta = self.sampling_from_post(torch.from_numpy(self.x_star).float().cuda(), self.savepath_plots/'theta.csv', only_returning = True)
-
-#         fig = MIRI_consistency( self.theta[:512], 
-#                                 simulator_miri_cloudy = None,
-#                                 simulator_miri_cloudfree = simulator_miri_cloudfree,
-#                                 savepath_plots = self.savepath_plots,
-#                                 cloud = 'cloudfree', 
-#                                 obs_miri = obs_miri, 
-#                                 obs_wlen_miri = obs_wlen_miri, 
-#                                 sigmaM = sigmaM,
-#                                 only_returning = False,
-#                                 p = None).fig
-#         return fig
-
-#     def consistencyplot_Gemini(self):
-#         # wlen = obs_wlen_hst
-#         self.theta = self.sampling_from_post(torch.from_numpy(self.x_star).float().cuda(), self.savepath_plots/'theta.csv', only_returning = True)
-
-#         fig = Gemini_consistency(  self.theta[:512], 
-#                                 simulator_hst_cloudy = None,
-#                                 simulator_hst_cloudfree = simulator_hst_cloudfree,
-#                                 mode = 'MIRI + HST+ Gemini', 
-#                                 savepath_plots = self.savepath_plots,
-#                                 cloud = 'cloudfree',
-#                                 obs_gemini = obs_gemini, 
-#                                 obs_wlen_gemini = obs_wlen_gemini,
-#                                 sigmaG = sigmaG,  
-#                                 only_returning = False,
-#                                 p = None).fig
-#         return fig
-    
-#     def consistencyplot_HST(self):
-#         # wlen = obs_wlen_hst
-#         self.theta = self.sampling_from_post(torch.from_numpy(self.x_star).float().cuda(), self.savepath_plots/'theta.csv', only_returning = True)
-
-#         fig = HST_consistency(  self.theta[:512], 
-#                                 simulator_hst_cloudy = simulator_hst_cloudfree,
-#                                 simulator_hst_cloudfree = simulator_hst_cloudfree,
-#                                 mode = 'MIRI + HST+ Gemini', 
-#                                 savepath_plots = self.savepath_plots,
-#                                 cloud = 'cloudfree',
-#                                 obs_hst = obs_hst, 
-#                                 obs_wlen_hst = obs_wlen_hst,
-#                                 sigmaH = sigmaH, 
-#                                 only_returning = False,
-#                                 p = None, 
-#                                 ).fig
-        
-
-                
-#         return fig
     

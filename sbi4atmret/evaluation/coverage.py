@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch
 from itertools import islice
+import pandas as pd
 
 
 @dataclass(frozen=True)
@@ -45,47 +46,6 @@ class CoverageResult:
 
     save_path: Optional[Path] = None
 
-    # -----------------------------------
-    # convenience properties
-    # -----------------------------------
-
-    @property
-    def ideal(self):
-        """
-        Ideal calibration line.
-        """
-        return 1.0 - self.alpha
-
-    @property
-    def calibration_error(self):
-        """
-        Mean absolute calibration error.
-        """
-
-        return np.mean(
-            np.abs(self.coverage - self.ideal)
-        )
-
-    @property
-    def n_samples(self):
-        return len(self.ranks)
-
-    # -----------------------------------
-    # serialization helpers
-    # -----------------------------------
-
-    def to_dict(self):
-
-        return {
-            "coverage": self.coverage.tolist(),
-            "alpha": self.alpha.tolist(),
-            "calibration_error": float(
-                self.calibration_error
-            ),
-            "n_samples": self.n_samples,
-        }
-
-
     def compute_coverage(
         self,
         plot=True,
@@ -113,14 +73,18 @@ class CoverageResult:
             for a in alpha
         ])
 
+        ## saving coverage
+        df_ranks = pd.DataFrame(coverage) #convert to a dataframe
+        df_ranks.to_csv(self.savepath_plots /"coverage.csv",index=False) #save to file
+
         figure = None
 
         if plot:
-            figure = self.plot(alpha, coverage)
+            figure = self.plot(coverage)
 
             if save_path is not None:
                 figure.savefig(
-                    save_path,
+                    save_path/ "coverage.pdf",
                     bbox_inches="tight",
                 )
 

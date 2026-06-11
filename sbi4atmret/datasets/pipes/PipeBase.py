@@ -53,11 +53,8 @@ class BasePipe:
     def param_index(self):
         return self.domain.param_index
 
-    def __call__(self, *batches):
-        """
-        batches = [(theta1, x1), (theta2, x2), ...]
-        """
-        return self.forward(*batches)
+    def __call__(self, *args, **kwargs):
+        return self.forward(*args, **kwargs)
     
     def modify_spec(self, batch_dict):
         raise NotImplementedError
@@ -67,10 +64,12 @@ class BasePipe:
         raise NotImplementedError
 
 
-    def forward(self, batch_dict: dict):
+    def forward(self, batch_dict: dict, mode="train"):
 
         batch_dict = self.modify_spec(batch_dict)
-        batch_dict = self.modify_theta(batch_dict)
+
+        if mode == "train":
+            batch_dict = self.modify_theta(batch_dict)
 
         return batch_dict 
     

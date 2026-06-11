@@ -62,7 +62,7 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
         ## spec
         x_dict = {
             inst: batch_dict[inst][1]
-            for inst in self.theta_mapper.instrument_names
+            for inst in self.theta_mapper.simulator_names
         }
 
          ## merge x

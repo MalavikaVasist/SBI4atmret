@@ -2,13 +2,11 @@ class BatchProcessor:
 
     def __init__(
         self,
-        dataset,
         pipe,
         noise,
         device,
     ):
 
-        self.dataset = dataset
         self.pipe = pipe
         self.noise = noise
         self.device = device
@@ -28,13 +26,12 @@ class BatchProcessor:
 
     def prepare_batch(
         self,
-        batches,
-        keys,
+        batch_dict,
         add_noise=True,
+        mode="train",
     ):
 
-        batch_dict = self.dataset.reconstruct_batch(keys, batches)
-        processed_batch = self.pipe(batch_dict)
+        processed_batch = self.pipe(batch_dict, mode=mode)
 
         if add_noise:
             processed_batch = self.noise(processed_batch)
