@@ -62,7 +62,7 @@ class ConsistencyResult:
     posterior_samples: torch.Tensor
 
     # simulator outputs
-    predictive_samples: dict
+    predictive_dict: dict
 
     # merged spectra
     merged_prediction: np.ndarray
@@ -117,9 +117,10 @@ class ConsistencyEvaluator(BaseEvaluator):
             )
         )
 
+        # (B, D) - (D,) broadcasts to (B, D)
         residuals = (
             merged_prediction
-            - self.x_obs.cpu().numpy()
+            - self.x_obs
         )
 
         figure = None
@@ -134,13 +135,13 @@ class ConsistencyEvaluator(BaseEvaluator):
 
             if save_path is not None:
                 figure.savefig(
-                    save_path/ "posterior_predictive.pdf",
+                    save_path / "posterior_predictive.pdf",
                     bbox_inches="tight",
                 )
 
         return ConsistencyResult(
             posterior_samples=posterior_samples,
-            predictive_samples=predictive_samples,
+            predictive_dict=predictive_dict,
             merged_prediction=merged_prediction,
             merged_wavelength=merged_wavelength,
             residuals=residuals,
@@ -278,59 +279,94 @@ class ConsistencyEvaluator(BaseEvaluator):
         wavelength,
         prediction,
         residuals,
+        color="steelblue",
+        creds=(0.997, 0.955, 0.683),
+        alpha=(0.0, 0.9),
+        figsize=(10, 6),
     ):
 
-        fig, axes = plt.subplots(
+        """
+        Generalized consistency plot with credible-region bands.
+
+        Upper panel: posterior predictive spectra vs observation.
+        Lower panel: residuals.
+
+        Args:
+            wavelength: (D,) observation wavelengths
+            prediction: (B, D) posterior predictive spectra
+            residuals: (B, D) residuals (prediction - obs) / sigma
+            color: color for the credible-region bands
+            creds: credibility levels for shading
+            alpha: (min, max) alpha transparency range
+            figsize: figure size
+        """
+
+        from lampe.plots import LinearAlphaColormap
+
+        # compute levels for colormap
+        creds_arr = np.sort(np.asarray(creds))[::-1]
+        creds_arr = np.append(creds_arr, 0)
+        levels = (creds_arr - creds_arr.min()) / (creds_arr.max() - creds_arr.min())
+        levels = (levels[:-1] + levels[1:]) / 2
+
+        cmap = LinearAlphaColormap(color, levels=creds_arr, alpha=alpha)
+
+        fig, (ax1, ax2) = plt.subplots(
             2,
-            1,
-            figsize=(10, 6),
+            figsize=figsize,
+            gridspec_kw={"height_ratios": [3, 1]},
             sharex=True,
         )
 
         # ---------------------------------
-        # spectrum
+        # upper panel: spectra
         # ---------------------------------
 
-        axes[0].plot(
-            wavelength,
-            prediction,
-            label="Posterior predictive",
+        for q, l in zip(creds_arr[:-1], levels):
+            lower, upper = np.quantile(
+                prediction, [0.5 - q / 2, 0.5 + q / 2], axis=0
+            )
+            ax1.fill_between(
+                wavelength, lower, upper,
+                color=cmap(l), linewidth=0,
+            )
+
+        ax1.plot(
+            wavelength, self.x_obs,
+            color="black", linewidth=0.4,
+            label=r"$x_{\mathrm{obs}}$",
         )
 
-        axes[0].scatter(
-            wavelength,
-            self.x_obs,
-            s=10,
-            label="Observation",
-        )
+        # build legend with credible-region patches
+        import matplotlib.patches as mpatches
 
-        axes[0].set_ylabel(
-            "Flux"
-        )
+        handles, texts = ax1.get_legend_handles_labels()
+        for q, l in zip(creds_arr[:-1], levels):
+            handles.append(mpatches.Patch(color=cmap(l), linewidth=0))
+            texts.append(r"${:.1f}\,\%$ credible region".format(q * 100))
 
-        axes[0].legend()
+        ax1.legend(handles, texts, bbox_to_anchor=(1, 1))
+        ax1.set_ylabel(r"Planet flux $F_\nu$ ($10^{-5}$ Jy)")
+        plt.setp(ax1.get_xticklabels(), visible=False)
 
         # ---------------------------------
-        # residuals
+        # lower panel: residuals
         # ---------------------------------
 
-        axes[1].plot(
-            wavelength,
-            residuals,
-        )
+        for q, l in zip(creds_arr[:-1], levels):
+            lower, upper = np.quantile(
+                residuals, [0.5 - q / 2, 0.5 + q / 2], axis=0
+            )
+            ax2.fill_between(
+                wavelength, lower, upper,
+                color=cmap(l), linewidth=0,
+            )
 
-        axes[1].axhline(
-            0,
-            linestyle="--",
-        )
+        ax2.axhline(0, color="black", linestyle="--", linewidth=0.5)
+        ax2.set_xlabel(r"Wavelength ($\mu$m)")
+        ax2.set_ylabel(r"Residuals")
 
-        axes[1].set_xlabel(
-            "Wavelength [micron]"
-        )
-
-        axes[1].set_ylabel(
-            "Residual"
-        )
+        fig.tight_layout()
 
         return fig
 
