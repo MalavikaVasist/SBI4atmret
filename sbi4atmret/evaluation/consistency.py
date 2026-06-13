@@ -168,44 +168,10 @@ class ConsistencyEvaluator(BaseEvaluator):
     # =====================================================
 
 
-
-    # def evaluate_posterior_predictive(self, theta_posterior, simulators_dict):
-    #     """
-    #     Generate posterior predictive samples from posterior theta samples.
-        
-    #     Typical usage during evaluation:
-    #         pipe = MiriGeminiHSTcloudfreePipe(config)
-    #         # ... train network ...
-            
-    #         theta_posterior = posterior.sample((10000,))  # 10k posterior samples
-    #         spec_predictive = pipe.evaluate_posterior_predictive(
-    #             theta_posterior, 
-    #             {"miri": miri_sim, "gemini": gemini_sim, "hst": hst_sim}
-    #         )
-        
-    #     Args:
-    #         theta_posterior: [B, D_global] posterior samples
-    #         simulators_dict: Dict with keys "cloudfree_miri", "cloudfree_gemini", "cloudfree_hst" containing simulator functions
-            
-    #     Returns:
-    #         Dict with keys "cloudfree_miri", "cloudfree_gemini", "cloudfree_hst" containing simulated spectra [B, D]
-    #     """
-    #     # Split theta back to simulator-specific parameters
-    #     theta_dict = self.pipe.split_theta(theta_posterior)
-        
-    #     # Run simulators independently
-    #     specs = {
-    #         inst: simulators_dict[inst](theta_dict[inst])
-    #         for inst in theta_dict.keys()
-    #     }
-        
-    #     return specs
-
-
-
     def compute_posterior_predictive(
         self,
         posterior_samples: torch.Tensor,
+        savepath : 
     ) -> dict:
 
         """
@@ -247,6 +213,8 @@ class ConsistencyEvaluator(BaseEvaluator):
                 theta_dict[sim_name],  # (B, D_inst)
                 x,                     # (B, D_spec)
             )
+
+        
 
         return predictive
 
@@ -374,3 +342,34 @@ class ConsistencyEvaluator(BaseEvaluator):
 
 
     
+ # def evaluate_posterior_predictive(self, theta_posterior, simulators_dict):
+    #     """
+    #     Generate posterior predictive samples from posterior theta samples.
+        
+    #     Typical usage during evaluation:
+    #         pipe = MiriGeminiHSTcloudfreePipe(config)
+    #         # ... train network ...
+            
+    #         theta_posterior = posterior.sample((10000,))  # 10k posterior samples
+    #         spec_predictive = pipe.evaluate_posterior_predictive(
+    #             theta_posterior, 
+    #             {"miri": miri_sim, "gemini": gemini_sim, "hst": hst_sim}
+    #         )
+        
+    #     Args:
+    #         theta_posterior: [B, D_global] posterior samples
+    #         simulators_dict: Dict with keys "cloudfree_miri", "cloudfree_gemini", "cloudfree_hst" containing simulator functions
+            
+    #     Returns:
+    #         Dict with keys "cloudfree_miri", "cloudfree_gemini", "cloudfree_hst" containing simulated spectra [B, D]
+    #     """
+    #     # Split theta back to simulator-specific parameters
+    #     theta_dict = self.pipe.split_theta(theta_posterior)
+        
+    #     # Run simulators independently
+    #     specs = {
+    #         inst: simulators_dict[inst](theta_dict[inst])
+    #         for inst in theta_dict.keys()
+    #     }
+        
+    #     return specs

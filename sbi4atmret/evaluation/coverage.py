@@ -46,10 +46,33 @@ class CoverageResult:
 
     save_path: Optional[Path] = None
 
+
+class coverage(BaseEvaluator):
+        
+    def __call__(self, save_path: Path, *args, **kwargs):
+        ranks, coverage, alpha = self.compute_coverage(save_path=save_path)
+        figure = self.plot(coverage)
+
+
+        if save_path is not None:
+            df_cov = pd.DataFrame(coverage) #convert to a dataframe
+            df_cov.to_csv(save_path /"coverage.csv",index=False) #save to file        
+            figure.savefig(
+                save_path/ "coverage.pdf",
+                bbox_inches="tight",
+            )
+
+        return CoverageResult(
+            ranks=ranks,
+            coverage=coverage,
+            alpha=alpha,
+            figure=figure,
+            save_path=save_path,
+        )
+
     def compute_coverage(
         self,
-        plot=True,
-        save_path=None,
+        save_path: Path,
     ):
 
         ranks = []
@@ -73,35 +96,14 @@ class CoverageResult:
             for a in alpha
         ])
 
-        ## saving coverage
-        df_ranks = pd.DataFrame(coverage) #convert to a dataframe
-        df_ranks.to_csv(self.savepath_plots /"coverage.csv",index=False) #save to file
-
-        figure = None
-
-        if plot:
-            figure = self.plot(coverage)
-
-            if save_path is not None:
-                figure.savefig(
-                    save_path/ "coverage.pdf",
-                    bbox_inches="tight",
-                )
-
-        return CoverageResult(
-            ranks=ranks,
-            coverage=coverage,
-            alpha=alpha,
-            figure=figure,
-            save_path=save_path,
-        )
+        return ranks, coverage, alpha
 
 
-    def plot(self, a):
+    def plot(self, coverage):
         fig, ax = plt.subplots(figsize=(5, 5))
         ax.set_xlabel(r'Credibility level $1-\alpha$', fontsize = 12)
         ax.set_ylabel(r'Coverage probability', fontsize= 12)
-        ax.plot(np.linspace(0,1,100),a, color='steelblue', label='') #a[::-1]
+        ax.plot(np.linspace(0,1,100),coverage, color='steelblue', label='') #a[::-1]
         ax.plot([0, 1], [0, 1], color='k', linestyle='--')
         plt.xticks(fontsize=10)
         plt.yticks(fontsize=10)

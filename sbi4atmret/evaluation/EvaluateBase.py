@@ -7,8 +7,8 @@ from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 
-from .coverage import CoverageResult
-from .consistency import compute_consistency
+from .coverage import CoverageResult, compute_coverage, plot_coverage
+from .consistency import ConsistencyEvaluator
 
 
 class BaseEvaluator:
@@ -115,11 +115,9 @@ class BaseEvaluator:
 
 
     def run_coverage():
-        CoverageResult().compute_coverage(plot = True, 
-                                            save_path= self.eval_dir,
-                                            )
+        coverage_result = coverage(self.eval_dir)
 
-    
+
     def run_consistency():
         compute_consistency()
 
