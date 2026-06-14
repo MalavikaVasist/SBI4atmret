@@ -1,44 +1,3 @@
-
-
-from dataclasses import dataclass
-
-from sbi4atmret.evaluation.EvaluateBase import BaseEvaluator
-
-
-class Consistencywrapper(BaseEvaluator):
-
-    def compute_posterior_predictive(self, plot=True):
-
-        '''
-        find all the simulators from simulator_dict and simulate the 
-        posterior predictive for each of them. 
-        '''
-        return None
-    
-    def combine_predictive_checks(self, plot=True):
-
-        '''
-        combine the posterior predictive checks into a single consistency check based
-        on the sort_index. 
-        '''
-        return None
-    
-
-    def plot(self, plot=True):
-
-        '''
-        plot and save the consistency check. 
-        '''
-        return fig
-
-
-
-    # def plot
-
-
-
-
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Any
@@ -49,6 +8,7 @@ from matplotlib import pyplot as plt
 from tqdm import tqdm
 
 from .EvaluateBase import BaseEvaluator
+from sbi4atmret.utils.general import instrument_from_simname
 
 
 # =========================================================
@@ -58,21 +18,18 @@ from .EvaluateBase import BaseEvaluator
 @dataclass(frozen=True)
 class ConsistencyResult:
 
-    # posterior samples
     posterior_samples: torch.Tensor
 
-    # simulator outputs
     predictive_dict: dict
 
-    # merged spectra
+    residuals: dict
+
     merged_prediction: np.ndarray
 
     merged_wavelength: np.ndarray
 
-    # residuals against observation
-    residuals: np.ndarray
+    merged_residuals: np.ndarray
 
-    # plotting
     figure: Optional[Any] = None
 
 
@@ -105,23 +62,18 @@ class ConsistencyEvaluator(BaseEvaluator):
             n_samples=n_posterior_samples,
         )
 
-        predictive_dict = (
-            self.compute_posterior_predictive(
-                posterior_samples
-            )
+        predictive_dict = self.compute_posterior_predictive(
+            posterior_samples,
+            savepath=save_path,
         )
 
-        merged_wavelength, merged_prediction = (
-            self.combine_predictive_checks(
-                predictive_dict
-            )
+        residuals_dict = self.compute_residuals(predictive_dict)
+
+        merged_wavelength, merged_prediction = self.combine_predictives(
+            predictive_dict
         )
 
-        # (B, D) - (D,) broadcasts to (B, D)
-        residuals = (
-            merged_prediction
-            - self.x_obs
-        )
+        merged_residuals = self.combine_residuals(residuals_dict)
 
         figure = None
 
@@ -130,7 +82,7 @@ class ConsistencyEvaluator(BaseEvaluator):
             figure = self.plot(
                 merged_wavelength,
                 merged_prediction,
-                residuals,
+                merged_residuals,
             )
 
             if save_path is not None:
@@ -142,9 +94,10 @@ class ConsistencyEvaluator(BaseEvaluator):
         return ConsistencyResult(
             posterior_samples=posterior_samples,
             predictive_dict=predictive_dict,
+            residuals = residuals, 
             merged_prediction=merged_prediction,
             merged_wavelength=merged_wavelength,
-            residuals=residuals,
+            merged_residuals=merged_residuals,
             figure=figure,
         )
 
@@ -157,9 +110,8 @@ class ConsistencyEvaluator(BaseEvaluator):
         n_samples: int = 512,
     ) -> torch.Tensor:
 
-        
         idx = torch.randperm(self.theta.shape[0])[:n_samples]
-        theta = self.theta[idx].cpu()        
+        theta = self.theta[idx].cpu()
 
         return theta
 
@@ -167,11 +119,10 @@ class ConsistencyEvaluator(BaseEvaluator):
     # PREDICTIVE SIMULATION
     # =====================================================
 
-
     def compute_posterior_predictive(
         self,
         posterior_samples: torch.Tensor,
-        savepath : 
+        savepath: Optional[Path] = None,
     ) -> dict:
 
         """
@@ -180,6 +131,8 @@ class ConsistencyEvaluator(BaseEvaluator):
         Returns a dict matching the pipe's batch_dict format:
             {sim_name: (theta, x)}
         where theta is (B, D_inst) and x is (B, D_spec).
+
+        The returned dict has pipe spectral transforms and noise applied.
         """
 
         # split_theta expects (B, D) — add batch dim if needed
@@ -188,11 +141,9 @@ class ConsistencyEvaluator(BaseEvaluator):
 
         theta_dict = self.pipe.split_theta(posterior_samples)
 
-        predictive = {}
+        predictive_dict = {}
 
-        for sim_name, simulator in (
-            self.simulator_dict.items()
-        ):
+        for sim_name, simulator in self.simulator_dict.items():
 
             spectra = []
 
@@ -209,34 +160,72 @@ class ConsistencyEvaluator(BaseEvaluator):
 
             x = torch.stack(spectra)  # (B, D_spec)
 
-            predictive[sim_name] = (
+            predictive_dict[sim_name] = (
                 theta_dict[sim_name],  # (B, D_inst)
                 x,                     # (B, D_spec)
             )
 
-        
+        # Apply spectral transforms (no modify_theta) and noise
+        predictive_dict = self.batch_processor.process(
+            predictive_dict, mode="eval", add_noise=True
+        )
 
-        return predictive
+        if savepath is not None:
+            savepath.mkdir(parents=True, exist_ok=True)
+            torch.save(predictive_dict, savepath / "predictive_dict.pt")
+
+        return predictive_dict
+
+    # =====================================================
+    # RESIDUALS
+    # =====================================================
+
+    def compute_residuals(self, predictive_dict: dict) -> dict:
+        """
+        Compute per-instrument residuals: (x_pred - x_obs) / (sigma * scale).
+        """
+
+        residuals = {}
+
+        for sim_name in self.simulator_dict.keys():
+
+            theta, x_pred = predictive_dict[sim_name]
+
+            instrument_name = instrument_from_simname(sim_name)
+            x_obs = self.observation.observation_dict[instrument_name]
+
+            sigma = self.noise.compute_sigma(theta, sim_name)
+            res = (x_pred - x_obs) / (sigma * self.domain.scale)
+
+            residuals[sim_name] = (theta, res)
+
+        return residuals
 
     # =====================================================
     # MERGING
     # =====================================================
 
-    def combine_predictive_checks(self, predictive_dict: dict):
+    def combine_predictives(self, predictive_dict: dict):
         """
-        Apply pipe transforms and merge into observation space.
-        Uses batch_processor in eval mode (skips modify_theta).
+        Merge processed per-instrument predictions into observation space.
         """
-        _, x = self.batch_processor.prepare_batch(
-            predictive_dict,
-            mode="eval",
-            add_noise=True,
+        _, merged_x = self.batch_processor.merge(
+            predictive_dict, mode="eval"
         )
 
         merged_wavelength = self.observation.full_wavelength
 
-        return merged_wavelength, x.cpu().numpy()
+        return merged_wavelength, merged_x.cpu().numpy()
 
+    def combine_residuals(self, residuals_dict: dict) -> np.ndarray:
+        """
+        Merge per-instrument residuals into observation space.
+        """
+        _, merged_residuals = self.batch_processor.merge(
+            residuals_dict, mode="eval"
+        )
+
+        return merged_residuals.cpu().numpy()
 
     # =====================================================
     # PLOTTING
@@ -337,39 +326,3 @@ class ConsistencyEvaluator(BaseEvaluator):
         fig.tight_layout()
 
         return fig
-
-
-
-
-    
- # def evaluate_posterior_predictive(self, theta_posterior, simulators_dict):
-    #     """
-    #     Generate posterior predictive samples from posterior theta samples.
-        
-    #     Typical usage during evaluation:
-    #         pipe = MiriGeminiHSTcloudfreePipe(config)
-    #         # ... train network ...
-            
-    #         theta_posterior = posterior.sample((10000,))  # 10k posterior samples
-    #         spec_predictive = pipe.evaluate_posterior_predictive(
-    #             theta_posterior, 
-    #             {"miri": miri_sim, "gemini": gemini_sim, "hst": hst_sim}
-    #         )
-        
-    #     Args:
-    #         theta_posterior: [B, D_global] posterior samples
-    #         simulators_dict: Dict with keys "cloudfree_miri", "cloudfree_gemini", "cloudfree_hst" containing simulator functions
-            
-    #     Returns:
-    #         Dict with keys "cloudfree_miri", "cloudfree_gemini", "cloudfree_hst" containing simulated spectra [B, D]
-    #     """
-    #     # Split theta back to simulator-specific parameters
-    #     theta_dict = self.pipe.split_theta(theta_posterior)
-        
-    #     # Run simulators independently
-    #     specs = {
-    #         inst: simulators_dict[inst](theta_dict[inst])
-    #         for inst in theta_dict.keys()
-    #     }
-        
-    #     return specs

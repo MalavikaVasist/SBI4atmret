@@ -50,7 +50,7 @@ class CoverageResult:
 class coverage(BaseEvaluator):
         
     def __call__(self, save_path: Path, *args, **kwargs):
-        ranks, coverage, alpha = self.compute_coverage(save_path=save_path)
+        ranks, coverage, alpha = self.compute_coverage()
         figure = self.plot(coverage)
 
 
@@ -72,7 +72,6 @@ class coverage(BaseEvaluator):
 
     def compute_coverage(
         self,
-        save_path: Path,
     ):
 
         ranks = []

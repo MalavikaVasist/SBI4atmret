@@ -89,10 +89,13 @@ class BasePipe:
 
         return theta
 
-    def build_input(self, batch_dict):
+    def build_input(self, batch_dict, mode="train"):
 
         x = self.merge_spec(batch_dict)
-        theta = self.merge_theta(batch_dict)
+        if mode == "train":
+            theta = self.merge_theta(batch_dict)
+        elif mode == "eval":
+            theta  = None
         
         return theta, x
 
