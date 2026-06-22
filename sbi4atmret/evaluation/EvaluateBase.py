@@ -7,8 +7,8 @@ from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 
-from .coverage import CoverageResult, compute_coverage, plot_coverage
-from .consistency import ConsistencyEvaluator
+from .coverage import CoverageResult, coverage as CoverageEvaluator
+from .consistency import ConsistencyEvaluator, ConsistencyResult
 
 
 class BaseEvaluator:
@@ -106,6 +106,8 @@ class BaseEvaluator:
         self.run_corner()
         self.run_pt_profile()
         self.run_posterior_predictive()
+        self.run_consistency()
+        self.IS_corner()
         
 
     def perform_evaluations(self):
@@ -114,11 +116,30 @@ class BaseEvaluator:
 
 
 
-    def run_coverage():
-        coverage_result = coverage(self.eval_dir)
+    def run_coverage(self):
+        """Compute coverage, save CSV and plot to eval_dir."""
+        csv_path = self.eval_dir / "coverage.csv"
 
+        if csv_path.exists():
+            import numpy as np
+            df = pd.read_csv(csv_path)
+            return df
 
-    def run_consistency():
-        compute_consistency()
+        # CoverageEvaluator inherits from BaseEvaluator,
+        # but we already have everything set up on self.
+        # Call compute_coverage and plot directly.
+        coverage_eval = CoverageEvaluator.__new__(CoverageEvaluator)
+        coverage_eval.__dict__.update(self.__dict__)
+
+        return coverage_eval(save_path=self.eval_dir)
+
+    def run_consistency(self):
+        """Run posterior predictive consistency check."""
+        consistency_eval = ConsistencyEvaluator.__new__(ConsistencyEvaluator)
+        consistency_eval.__dict__.update(self.__dict__)
+
+        return consistency_eval.run(
+            save_path=self.eval_dir,
+        )
 
 

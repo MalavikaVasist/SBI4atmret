@@ -9,6 +9,7 @@ from tqdm import tqdm
 
 from .EvaluateBase import BaseEvaluator
 from sbi4atmret.utils.general import instrument_from_simname
+from sbi4atmret.utils.plotting_utils import legends
 
 
 # =========================================================
@@ -239,14 +240,18 @@ class ConsistencyEvaluator(BaseEvaluator):
         color="steelblue",
         creds=(0.997, 0.955, 0.683),
         alpha=(0.0, 0.9),
-        figsize=(10, 6),
+        figsize=(10, 5),
+        xlim=(0, 18.2),
+        ylim_spectra=(-10, 60),
+        ylim_residuals=(-25, 25),
+        inset_spectra=None,
+        inset_residuals=None,
+        rcparams=None,
     ):
 
         """
-        Generalized consistency plot with credible-region bands.
-
-        Upper panel: posterior predictive spectra vs observation.
-        Lower panel: residuals.
+        Generalized consistency plot with credible-region bands,
+        inset zooms, custom axis limits, and custom legends.
 
         Args:
             wavelength: (D,) observation wavelengths
@@ -256,9 +261,40 @@ class ConsistencyEvaluator(BaseEvaluator):
             creds: credibility levels for shading
             alpha: (min, max) alpha transparency range
             figsize: figure size
+            xlim: (xmin, xmax) shared x-axis limits
+            ylim_spectra: (ymin, ymax) for the upper panel
+            ylim_residuals: (ymin, ymax) for the lower panel
+            inset_spectra: dict with keys:
+                - xlim: (xmin, xmax) zoom range
+                - ylim: (ymin, ymax) zoom range
+                - width: inset width (default 1.8)
+                - height: inset height (default 0.9)
+                - bbox_to_anchor: (x, y) in figure coords (default (0.14, 0.87))
+            inset_residuals: dict with same keys as inset_spectra
+                - width default 1.0, height default 0.4
+                - bbox_to_anchor default (0.22, 0.28)
+            rcparams: optional dict of matplotlib rcParams overrides
+
+        call: 
+        
+        fig = evaluator.plot_merged(
+                            wavelength, prediction, residuals,
+                            inset_spectra={"xlim": (0.97, 2.2), "ylim": (-0.25, 10)},
+                            inset_residuals={"xlim": (0.97, 2.2), "ylim": (-10, 20)},
+                        )
         """
 
         from lampe.plots import LinearAlphaColormap
+        from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
+
+        # rc params
+        params = rcparams or {
+            "axes.labelsize": 12,
+            "legend.fontsize": 10,
+            "xtick.labelsize": 8,
+            "ytick.labelsize": 8,
+        }
+        plt.rcParams.update(params)
 
         # compute levels for colormap
         creds_arr = np.sort(np.asarray(creds))[::-1]
@@ -272,7 +308,6 @@ class ConsistencyEvaluator(BaseEvaluator):
             2,
             figsize=figsize,
             gridspec_kw={"height_ratios": [3, 1]},
-            sharex=True,
         )
 
         # ---------------------------------
@@ -294,17 +329,45 @@ class ConsistencyEvaluator(BaseEvaluator):
             label=r"$x_{\mathrm{obs}}$",
         )
 
-        # build legend with credible-region patches
-        import matplotlib.patches as mpatches
-
-        handles, texts = ax1.get_legend_handles_labels()
-        for q, l in zip(creds_arr[:-1], levels):
-            handles.append(mpatches.Patch(color=cmap(l), linewidth=0))
-            texts.append(r"${:.1f}\,\%$ credible region".format(q * 100))
-
+        # custom legend via legends()
+        handles, texts = legends(axes=ax1, alpha=alpha, color=color)
+        texts = [r"$x_{\mathrm{obs}}$", r"$p_\phi(f(\theta)|x_{\mathrm{obs}})$"]
         ax1.legend(handles, texts, bbox_to_anchor=(1, 1))
-        ax1.set_ylabel(r"Planet flux $F_\nu$ ($10^{-5}$ Jy)")
+
         plt.setp(ax1.get_xticklabels(), visible=False)
+        ax1.set_ylabel(r"Planet flux $F_\nu$ (10$^{-5}$) Jy")
+        ax1.set_xlim(xlim)
+        ax1.set_ylim(ylim_spectra)
+
+        # ---------------------------------
+        # inset zoom: spectra
+        # ---------------------------------
+
+        if inset_spectra is not None:
+            ins = inset_spectra
+            ax_ins = inset_axes(
+                ax1,
+                ins.get("width", 1.8),
+                ins.get("height", 0.9),
+                loc=2,
+                bbox_to_anchor=ins.get("bbox_to_anchor", (0.14, 0.87)),
+                bbox_transform=fig.transFigure,
+            )
+
+            ax_ins.plot(wavelength, self.x_obs, color="black", linewidth=0.4)
+
+            for q, l in zip(creds_arr[:-1], levels):
+                lower, upper = np.quantile(
+                    prediction, [0.5 - q / 2, 0.5 + q / 2], axis=0
+                )
+                ax_ins.fill_between(
+                    wavelength, lower, upper,
+                    color=cmap(l), linewidth=0,
+                )
+
+            ax_ins.set_xlim(ins["xlim"])
+            ax_ins.set_ylim(ins["ylim"])
+            mark_inset(ax1, ax_ins, loc1=4, loc2=3, fc="none", ec="0.7")
 
         # ---------------------------------
         # lower panel: residuals
@@ -319,10 +382,46 @@ class ConsistencyEvaluator(BaseEvaluator):
                 color=cmap(l), linewidth=0,
             )
 
-        ax2.axhline(0, color="black", linestyle="--", linewidth=0.5)
+        ax2.hlines(
+            0, wavelength[0], wavelength[-1],
+            color="black", linewidth=0.5,
+        )
         ax2.set_xlabel(r"Wavelength ($\mu$m)")
         ax2.set_ylabel(r"Residuals")
+        ax2.set_xlim(xlim)
+        ax2.set_ylim(ylim_residuals)
 
-        fig.tight_layout()
+        # ---------------------------------
+        # inset zoom: residuals
+        # ---------------------------------
+
+        if inset_residuals is not None:
+            ins = inset_residuals
+            ax_ins2 = inset_axes(
+                ax2,
+                ins.get("width", 1.0),
+                ins.get("height", 0.4),
+                loc=2,
+                bbox_to_anchor=ins.get("bbox_to_anchor", (0.22, 0.28)),
+                bbox_transform=fig.transFigure,
+            )
+
+            ax_ins2.hlines(
+                0, wavelength[0], wavelength[-1],
+                color="black", linewidth=0.5,
+            )
+
+            for q, l in zip(creds_arr[:-1], levels):
+                lower, upper = np.quantile(
+                    residuals, [0.5 - q / 2, 0.5 + q / 2], axis=0
+                )
+                ax_ins2.fill_between(
+                    wavelength, lower, upper,
+                    color=cmap(l), linewidth=0,
+                )
+
+            ax_ins2.set_xlim(ins["xlim"])
+            ax_ins2.set_ylim(ins["ylim"])
+            mark_inset(ax2, ax_ins2, loc1=4, loc2=3, fc="none", ec="0.7")
 
         return fig
