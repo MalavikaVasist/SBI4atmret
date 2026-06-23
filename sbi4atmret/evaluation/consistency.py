@@ -81,6 +81,10 @@ class ConsistencyEvaluator:
         where theta is (B, D_inst) and x is (B, D_spec).
 
         The returned dict has pipe spectral transforms and noise applied.
+
+        Also collects PT profiles (temperatures, pressures) per simulator
+        for reuse by PTEvaluator. Contribution function is computed
+        separately by PTEvaluator using the MAP sample.
         """
 
         # split_theta expects (B, D) — add batch dim if needed
@@ -90,10 +94,13 @@ class ConsistencyEvaluator:
         theta_dict = self.pipe.split_theta(posterior_samples)
 
         predictive_dict = {}
+        pt_dict = {}  # {sim_name: {temperatures, pressures}}
 
         for sim_name, simulator in self.simulator_dict.items():
 
             spectra = []
+            temperatures_list = []
+            pressures = None
 
             for i in tqdm(
                 range(theta_dict[sim_name].shape[0]),
@@ -102,9 +109,16 @@ class ConsistencyEvaluator:
 
                 theta_i = theta_dict[sim_name][i].numpy()
                 output = simulator(theta_i)
+
                 spectra.append(
                     torch.from_numpy(output.spectrum).float()
                 )
+
+                # Collect PT data
+                if output.temperatures is not None:
+                    temperatures_list.append(output.temperatures)
+                    if pressures is None:
+                        pressures = output.pressures
 
             x = torch.stack(spectra)  # (B, D_spec)
 
@@ -113,11 +127,20 @@ class ConsistencyEvaluator:
                 x,                     # (B, D_spec)
             )
 
+            # Store PT profiles for this simulator
+            if temperatures_list:
+                pt_dict[sim_name] = {
+                    "temperatures": np.stack(temperatures_list),
+                    "pressures": pressures,
+                }
+
+        # Save PT dict for reuse by PTEvaluator
+        self._pt_dict = pt_dict
+
         # Apply spectral transforms (no modify_theta) and noise
         predictive_dict = self.batch_processor.process(
             predictive_dict, mode="eval", add_noise=True
         )
-
 
         return predictive_dict
 
