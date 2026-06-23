@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 
-from .coverage import CoverageResult, coverage as CoverageEvaluator
+from .coverage import CoverageResult, compute_coverage, plot_coverage
 from .consistency import ConsistencyEvaluator, ConsistencyResult
 
 
@@ -118,28 +118,103 @@ class BaseEvaluator:
 
     def run_coverage(self):
         """Compute coverage, save CSV and plot to eval_dir."""
-        csv_path = self.eval_dir / "coverage.csv"
+        import numpy as np
+
+        self.coverage_path = self.eval_dir / "coverage" 
+        self.coverage_path.mkdir(exist_ok=True, parents=True)
+
+        csv_path = self.coverage_path / "coverage.csv"
+        alpha = np.linspace(0, 1, 100)
 
         if csv_path.exists():
-            import numpy as np
             df = pd.read_csv(csv_path)
-            return df
+            coverage = df["coverage"].values
+            ranks = None
+        else:
+            ranks, coverage, alpha = compute_coverage(
+                net=self.net,
+                batch_processor=self.batch_processor,
+                test_loaders=self.test_loaders,
+                test_keys=self.test_keys,
+            )
+            df = pd.DataFrame({"alpha": alpha, "coverage": coverage})
+            df.to_csv(csv_path, index=False)
 
-        # CoverageEvaluator inherits from BaseEvaluator,
-        # but we already have everything set up on self.
-        # Call compute_coverage and plot directly.
-        coverage_eval = CoverageEvaluator.__new__(CoverageEvaluator)
-        coverage_eval.__dict__.update(self.__dict__)
+        figure = plot_coverage(coverage, alpha)
+        figure.savefig(
+            self.coverage_path / "coverage.pdf",
+            bbox_inches="tight",
+        )
 
-        return coverage_eval(save_path=self.eval_dir)
+        return CoverageResult(
+            ranks=ranks,
+            coverage=coverage,
+            alpha=alpha,
+            figure=figure,
+            save_path=self.eval_dir,
+        )
 
     def run_consistency(self):
-        """Run posterior predictive consistency check."""
+        """Run posterior predictive consistency check.
+        
+        Checks for saved predictive_dict.pt and residuals_dict.pt.
+        If found, loads and skips to combine + plot.
+        If not, generates from scratch then saves.
+        """
         consistency_eval = ConsistencyEvaluator.__new__(ConsistencyEvaluator)
         consistency_eval.__dict__.update(self.__dict__)
 
-        return consistency_eval.run(
-            save_path=self.eval_dir,
+        self.consistency_path = self.eval_dir / "consistency" 
+        self.consistency_path.mkdir(exist_ok=True, parents=True)
+
+
+        posterior_samples_path = self.consistency_path/ "posterior_samples.pt"
+        predictive_path = self.consistency_path / "predictive_dict.pt"
+        residuals_path = self.consistency_path / "residuals_dict.pt"
+
+        if predictive_path.exists() and residuals_path.exists():
+            posterior_samples = torch.load(posterior_samples_path, map_location=self.device)
+            predictive_dict = torch.load(predictive_path, map_location=self.device)
+            residuals_dict = torch.load(residuals_path, map_location=self.device)
+        else:
+            posterior_samples = consistency_eval.consistency_samples()
+            torch.save(posterior_samples, posterior_samples_path)
+
+            predictive_dict = consistency_eval.compute_posterior_predictive(posterior_samples)
+            torch.save(predictive_dict, predictive_path)
+
+            residuals_dict = consistency_eval.compute_residuals(predictive_dict)
+            torch.save(residuals_dict, residuals_path)
+
+        # combine and plot
+        merged_wavelength, merged_prediction = consistency_eval.combine_predictives(
+            predictive_dict
         )
+        merged_residuals = consistency_eval.combine_residuals(residuals_dict)
+
+        figure = consistency_eval.plot(
+            merged_wavelength,
+            merged_prediction,
+            merged_residuals,
+        )
+
+        figure.savefig(
+            self.consistency_path / "posterior_predictive.pdf",
+            bbox_inches="tight",
+        )
+
+        return ConsistencyResult(
+            posterior_samples=posterior_samples,
+            predictive_dict=predictive_dict,
+            residuals_dict=residuals_dict,
+            merged_prediction=merged_prediction,
+            merged_wavelength=merged_wavelength,
+            merged_residuals=merged_residuals,
+            figure=figure,
+        )
+
+
+
+
 
 

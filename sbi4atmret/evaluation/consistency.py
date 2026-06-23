@@ -7,7 +7,6 @@ import torch
 from matplotlib import pyplot as plt
 from tqdm import tqdm
 
-from .EvaluateBase import BaseEvaluator
 from sbi4atmret.utils.general import instrument_from_simname
 from sbi4atmret.utils.plotting_utils import legends
 
@@ -19,11 +18,11 @@ from sbi4atmret.utils.plotting_utils import legends
 @dataclass(frozen=True)
 class ConsistencyResult:
 
-    posterior_samples: torch.Tensor
+    posterior_samples: Optional[torch.Tensor]
 
     predictive_dict: dict
 
-    residuals: dict
+    residuals_dict: dict
 
     merged_prediction: np.ndarray
 
@@ -38,7 +37,7 @@ class ConsistencyResult:
 # EVALUATOR
 # =========================================================
 
-class ConsistencyEvaluator(BaseEvaluator):
+class ConsistencyEvaluator:
 
     """
     Posterior predictive consistency checks.
@@ -46,61 +45,10 @@ class ConsistencyEvaluator(BaseEvaluator):
     Runs posterior samples through all simulators,
     merges predictions into observation space,
     and compares against observed spectra.
+
+    Expects to be initialized with a shared state dict
+    from BaseEvaluator (via __dict__.update).
     """
-
-    # =====================================================
-    # MAIN API
-    # =====================================================
-
-    def run(
-        self,
-        n_posterior_samples: int = 512,
-        plot: bool = True,
-        save_path: Optional[Path] = None,
-    ) -> ConsistencyResult:
-
-        posterior_samples = self.consistency_samples(
-            n_samples=n_posterior_samples,
-        )
-
-        predictive_dict = self.compute_posterior_predictive(
-            posterior_samples,
-            savepath=save_path,
-        )
-
-        residuals_dict = self.compute_residuals(predictive_dict)
-
-        merged_wavelength, merged_prediction = self.combine_predictives(
-            predictive_dict
-        )
-
-        merged_residuals = self.combine_residuals(residuals_dict)
-
-        figure = None
-
-        if plot:
-
-            figure = self.plot(
-                merged_wavelength,
-                merged_prediction,
-                merged_residuals,
-            )
-
-            if save_path is not None:
-                figure.savefig(
-                    save_path / "posterior_predictive.pdf",
-                    bbox_inches="tight",
-                )
-
-        return ConsistencyResult(
-            posterior_samples=posterior_samples,
-            predictive_dict=predictive_dict,
-            residuals = residuals, 
-            merged_prediction=merged_prediction,
-            merged_wavelength=merged_wavelength,
-            merged_residuals=merged_residuals,
-            figure=figure,
-        )
 
     # =====================================================
     # POSTERIOR SAMPLING
@@ -123,7 +71,6 @@ class ConsistencyEvaluator(BaseEvaluator):
     def compute_posterior_predictive(
         self,
         posterior_samples: torch.Tensor,
-        savepath: Optional[Path] = None,
     ) -> dict:
 
         """
@@ -171,9 +118,6 @@ class ConsistencyEvaluator(BaseEvaluator):
             predictive_dict, mode="eval", add_noise=True
         )
 
-        if savepath is not None:
-            savepath.mkdir(parents=True, exist_ok=True)
-            torch.save(predictive_dict, savepath / "predictive_dict.pt")
 
         return predictive_dict
 
@@ -248,7 +192,6 @@ class ConsistencyEvaluator(BaseEvaluator):
         inset_residuals=None,
         rcparams=None,
     ):
-
         """
         Generalized consistency plot with credible-region bands,
         inset zooms, custom axis limits, and custom legends.
@@ -264,24 +207,16 @@ class ConsistencyEvaluator(BaseEvaluator):
             xlim: (xmin, xmax) shared x-axis limits
             ylim_spectra: (ymin, ymax) for the upper panel
             ylim_residuals: (ymin, ymax) for the lower panel
-            inset_spectra: dict with keys:
-                - xlim: (xmin, xmax) zoom range
-                - ylim: (ymin, ymax) zoom range
-                - width: inset width (default 1.8)
-                - height: inset height (default 0.9)
-                - bbox_to_anchor: (x, y) in figure coords (default (0.14, 0.87))
-            inset_residuals: dict with same keys as inset_spectra
-                - width default 1.0, height default 0.4
-                - bbox_to_anchor default (0.22, 0.28)
+            inset_spectra: dict with keys xlim, ylim, width, height, bbox_to_anchor
+            inset_residuals: dict with same keys
             rcparams: optional dict of matplotlib rcParams overrides
 
-        call: 
-        
-        fig = evaluator.plot_merged(
-                            wavelength, prediction, residuals,
-                            inset_spectra={"xlim": (0.97, 2.2), "ylim": (-0.25, 10)},
-                            inset_residuals={"xlim": (0.97, 2.2), "ylim": (-10, 20)},
-                        )
+        Example:
+            fig = evaluator.plot_merged(
+                wavelength, prediction, residuals,
+                inset_spectra={"xlim": (0.97, 2.2), "ylim": (-0.25, 10)},
+                inset_residuals={"xlim": (0.97, 2.2), "ylim": (-10, 20)},
+            )
         """
 
         from lampe.plots import LinearAlphaColormap
@@ -324,7 +259,7 @@ class ConsistencyEvaluator(BaseEvaluator):
             )
 
         ax1.plot(
-            wavelength, self.x_obs,
+            wavelength, self.x_obs.squeeze.cpu().numpy(),
             color="black", linewidth=0.4,
             label=r"$x_{\mathrm{obs}}$",
         )
@@ -354,7 +289,7 @@ class ConsistencyEvaluator(BaseEvaluator):
                 bbox_transform=fig.transFigure,
             )
 
-            ax_ins.plot(wavelength, self.x_obs, color="black", linewidth=0.4)
+            ax_ins.plot(wavelength, self.x_obs.squeeze.cpu().numpy(), color="black", linewidth=0.4)
 
             for q, l in zip(creds_arr[:-1], levels):
                 lower, upper = np.quantile(
