@@ -246,7 +246,6 @@ class BaseEvaluator:
 
         # The figure
         result.figure.savefig("custom_path.pdf")
-
         """
         pt_eval = PTEvaluator.__new__(PTEvaluator)
         pt_eval.__dict__.update(self.__dict__)
@@ -292,11 +291,31 @@ class BaseEvaluator:
                     pt_dict["wavelength"],
                     pt_dict["spectrum"],
                 )
-                contr_em_weighted = pt_eval.compute_contribution_weights(
+                contr_result = pt_eval.compute_contribution_weights(
                     pt_dict["pressures"],
                     pt_dict["contribution"],
                     spectral_weights,
                 )
+                contr_em_weighted = contr_result["contr_em_weighted"]
+
+                # Diagnostic plots per instrument
+                fig_sw = pt_eval.plot_spectral_weights(
+                    pt_dict["wavelength"], spectral_weights
+                )
+                fig_sw.savefig(pt_path / f"spectral_weights_{sim_name}.pdf", bbox_inches="tight")
+                plt.close(fig_sw)
+
+                fig_cp = pt_eval.plot_contribution_profile(
+                    pt_dict["pressures"], contr_result
+                )
+                fig_cp.savefig(pt_path / f"contribution_profile_{sim_name}.pdf", bbox_inches="tight")
+                plt.close(fig_cp)
+
+                fig_cm = pt_eval.plot_contribution_map(
+                    pt_dict["wavelength"], pt_dict["pressures"], contr_result
+                )
+                fig_cm.savefig(pt_path / f"contribution_map_{sim_name}.pdf", bbox_inches="tight")
+                plt.close(fig_cm)
 
             pt_data_list.append({
                 "temperatures": pt_dict["temperatures"],

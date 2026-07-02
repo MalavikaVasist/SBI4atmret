@@ -175,7 +175,11 @@ class PTEvaluator:
             spectral_weights: (D,)
 
         Returns:
-            contr_em_weighted: (n_pressures,) normalized 0-1
+            dict with keys:
+                - weights: (n_pressures, 1) pressure weights
+                - contr_em0: (n_pressures, D) normalized contribution
+                - contr_em: (n_pressures,) spectrally-weighted contribution
+                - contr_em_weighted: (n_pressures,) normalized 0-1
         """
         pressure_weights = np.diff(np.log10(pressures))
         weights = np.ones_like(pressures)
@@ -189,7 +193,70 @@ class PTEvaluator:
         contr_em = np.sum(contr_em0 * spectral_weights, axis=1) / np.sum(contr_em0)
         contr_em_weighted = contr_em / np.max(contr_em)
 
-        return contr_em_weighted
+        return {
+            "weights": weights,
+            "contr_em0": contr_em0,
+            "contr_em": contr_em,
+            "contr_em_weighted": contr_em_weighted,
+        }
+
+    # =====================================================
+    # DIAGNOSTIC PLOTS
+    # =====================================================
+
+    @staticmethod
+    def plot_spectral_weights(wavelength, spectral_weights):
+        """
+        Plot spectral weights vs wavelength.
+        """
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.plot(wavelength, spectral_weights)
+        ax.set_title("Spectral weights")
+        ax.set_xlabel(r"Wavelength ($\mu$m)")
+        ax.set_ylabel("Weight")
+        return fig
+
+    @staticmethod
+    def plot_contribution_profile(pressures, contr_result):
+        """
+        Plot the spectrally-weighted contribution emission profile.
+
+        Args:
+            pressures: (n_pressures,) in bar
+            contr_result: dict from compute_contribution_weights
+        """
+        fig, ax = plt.subplots(figsize=(5, 7))
+        ax.plot(contr_result["contr_em"], pressures)
+        ax.set_yscale("log")
+        ax.set_ylim([pressures[-1], pressures[0]])
+        ax.set_title("Spectrally weighted contribution emission")
+        ax.set_xlabel("Contribution")
+        ax.set_ylabel("Pressure (bar)")
+        ax.grid(True, which="both", alpha=0.5)
+        return fig
+
+    @staticmethod
+    def plot_contribution_map(wavelength, pressures, contr_result):
+        """
+        Plot the 2D emission contribution function map.
+
+        Args:
+            wavelength: (D,) in microns
+            pressures: (n_pressures,) in bar
+            contr_result: dict from compute_contribution_weights
+        """
+        X, Y = np.meshgrid(wavelength, pressures)
+
+        fig, ax = plt.subplots(figsize=(12, 6))
+        ax.contourf(X, Y, contr_result["contr_em0"], 40, cmap=plt.cm.bone_r)
+        ax.set_yscale("log")
+        ax.set_xscale("log")
+        ax.set_ylim([pressures[-1], pressures[0]])
+        ax.set_xlim([wavelength.min(), wavelength.max()])
+        ax.set_xlabel(r"Wavelength ($\mu$m)")
+        ax.set_ylabel("Pressure (bar)")
+        ax.set_title("Emission contribution function")
+        return fig
 
     # =====================================================
     # CONDENSATION CURVES
