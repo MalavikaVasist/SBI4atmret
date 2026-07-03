@@ -360,6 +360,8 @@ class BaseEvaluator:
             figure=figure,
         )
 
+def run_corner(self):
+    
 
 
 
