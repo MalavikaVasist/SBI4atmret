@@ -235,7 +235,7 @@ class ConsistencyEvaluator:
             rcparams: optional dict of matplotlib rcParams overrides
 
         Example:
-            fig = evaluator.plot_merged(
+            fig = evaluator.plot(
                 wavelength, prediction, residuals,
                 inset_spectra={"xlim": (0.97, 2.2), "ylim": (-0.25, 10)},
                 inset_residuals={"xlim": (0.97, 2.2), "ylim": (-10, 20)},
