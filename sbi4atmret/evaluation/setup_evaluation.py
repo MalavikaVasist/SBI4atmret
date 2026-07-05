@@ -7,7 +7,6 @@ from pathlib import Path
 from sbi4atmret.datasets.DatasetBase import Dataset
 from sbi4atmret.runtime.setup_runtime import CoreRuntimeContext, setup_runtime
 from sbi4atmret.config.configs import BaseConfig
-from sbi4atmret.torchutils.general import get_cuda_info
 
 # Setup logging
 logger = logging.getLogger(__name__)

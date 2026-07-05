@@ -1,6 +1,7 @@
 
 from sbi4atmret.utils.checkpoint import load_checkpoint, load_model_state
 from sbi4atmret.runtime.batch_processor import BatchProcessor
+from pathlib import Path
 import torch
 import pandas as pd
 from tqdm import tqdm
@@ -44,7 +45,7 @@ class BaseEvaluator:
         self.pipe = self.domain.pipe
         self.noise = self.domain.noise
         
-        self.checkpoint_path = context.runtime.checkpoint_path
+        self.checkpoint_path = Path(context.runtime.checkpoint_path) if context.runtime.checkpoint_path else None
         self.device = context.runtime.device
 
         ## dataset components

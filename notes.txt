@@ -19,3 +19,20 @@ Evaluator
     posterior diagnostics
 
 
+# 1. Generate dataset
+python scripts/generate_dataset.py \
+    --config experiments/config_MiriGeminiHST_cloudfree.yaml \
+    --output-dir /scratch/users/mvasist/JWST/simulations/cloudfree/ \
+    --n-batches 300 \
+    --batch-size 4096
+
+# 2. Train
+python scripts/train_general_new.py \
+    --config experiments/config_MiriGeminiHST_cloudfree.yaml \
+    --action train
+
+# 3. Evaluate
+python scripts/train_general_new.py \
+    --config experiments/config_MiriGeminiHST_cloudfree.yaml \
+    --action evaluate \
+    --checkpoint-path /path/to/runs/model_name/checkpoints/latest.pt

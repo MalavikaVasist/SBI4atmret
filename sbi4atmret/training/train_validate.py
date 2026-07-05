@@ -4,7 +4,6 @@ import yaml
 
 from sbi4atmret.runtime.batch_processor import BatchProcessor
 from sbi4atmret.utils.checkpoint import load_checkpoint, load_model_state, save_checkpoint
-from sbi4atmret.torchutils import to_device, _to_device
 import torch
 import wandb
 from tqdm import tqdm

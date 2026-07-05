@@ -70,7 +70,7 @@ def setup_training(
 
     # --- prior ---
     logger.info("Building prior...")
-    prior = config.build_prior().to(runtime.device)
+    prior = config.build_prior()
 
     # --- optimizer ---
     logger.info("Building optimizer...")

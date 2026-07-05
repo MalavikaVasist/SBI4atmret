@@ -76,10 +76,9 @@ elif args.action == "evaluate":
     )
 
     evaluator = BaseEvaluator(
-        config=config,
         model=model,
-        dataset=dataset,
         context=ctx,
+        config=config,
     )
 
     evaluator.run_all()

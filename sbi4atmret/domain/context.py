@@ -15,7 +15,7 @@ class DomainContext:
 
     # domain metadata
 
-    param_index: dict
+    sim_param_index: dict
 
     sim_wlens: dict
     obs_wlens: dict

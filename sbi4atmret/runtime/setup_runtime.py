@@ -3,12 +3,13 @@ from typing import Any, Optional, Union
 import logging
 from pathlib import Path
 
+import torch
+
 from sbi4atmret.config.configs import BaseConfig
 from sbi4atmret.datasets.DatasetBase import Dataset
 from sbi4atmret.domain.builders import build_domain_context
 from sbi4atmret.domain.context import DomainContext
 from sbi4atmret.observations.ObservationBase import Observation
-from sbi4atmret.torchutils.general import get_cuda_info
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -39,10 +40,7 @@ def setup_runtime(
     logger.info("=" * 60)
 
     # --- device ---
-    cuda_info = get_cuda_info(config)
-    if device == "cuda" and not cuda_info:
-        logger.warning("CUDA not available, switching to CPU")
-        device = "cpu"
+    device = device if torch.cuda.is_available() else "cpu"
     logger.info(f"Using device: {device}")
 
     # --- simulator ---
