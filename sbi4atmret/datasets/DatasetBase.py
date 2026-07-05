@@ -1,4 +1,4 @@
-from config import DatasetConfig
+from sbi4atmret.config.configs import DatasetConfig
 from lampe.data import H5Dataset
 from pathlib import Path
 from typing import Dict

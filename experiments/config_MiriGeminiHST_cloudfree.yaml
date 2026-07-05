@@ -1,7 +1,7 @@
 scratch_env: SCRATCH
 home_env: HOME
 
-observation:
+observation_config:
   source: WISEJ1738
   instruments: 
     hst:
@@ -17,7 +17,7 @@ observation:
     path: JWST/observations/WISEJ1738/simulations/cloudfree/spectrum.csv
 
 
-dataset:
+dataset_config:
   D: 7.34
   shuffle: true
   dataset_path:
@@ -61,7 +61,7 @@ dataset:
     type: likelihoods.gaussian.Gaussian
     kwargs: {}
   
-simulator:
+simulator_config:
   cloudfree_miri:
     type: simulators.simulator.Simulator
     kwargs:
@@ -258,7 +258,7 @@ simulator:
       a: 4.9
       b: 19
 
-prior:
+prior_config:
   distribution:
     type: priors.BoxUniform
     kwargs: {}
@@ -368,7 +368,7 @@ prior:
       lower: -15
       upper: -7
 
-estimator:
+estimator_config:
   flow:
     type: NPEFlow
     kwargs:
@@ -392,7 +392,7 @@ estimator:
           output_dim: 16
 
 
-training:
+training_config:
   optimizer:
     type: AdamW
     kwargs:

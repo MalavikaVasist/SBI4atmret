@@ -9,7 +9,7 @@ import torch
 import wandb
 from tqdm import tqdm
 from pathlib import Path
-import islice
+from itertools import islice
 
 
 class Trainer:

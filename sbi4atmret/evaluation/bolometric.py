@@ -174,18 +174,42 @@ class BolometricEvaluator:
         log_lums = []
         energies = []
 
-        for i in tqdm(range(theta_dict[sim_name].shape[0]), desc=f"Bolometric {sim_name}"):
-            theta_i = theta_dict[sim_name][i].numpy()
-            output = simulator(theta_i)
+        for i in tqdm(range(n_samples), desc="Bolometric"):
+            # Run all simulators for this sample
+            all_wavelengths = []
+            all_spectra = []
+            scale = None
+
+            for sim_name, simulator in self.simulator_dict.items():
+                theta_i = theta_dicts[sim_name][i].numpy()
+                output = simulator(theta_i)
+
+                all_wavelengths.append(output.wavelength)
+                all_spectra.append(output.spectrum)
+
+                if scale is None:
+                    scale = simulator.scale
+
+            # Concatenate and sort by wavelength
+            combined_wl = np.concatenate(all_wavelengths)
+            combined_spec = np.concatenate(all_spectra)
+            sort_idx = np.argsort(combined_wl)
+            combined_wl = combined_wl[sort_idx]
+            combined_spec = combined_spec[sort_idx]
+
+            # Remove duplicates (overlapping wavelength regions)
+            _, unique_idx = np.unique(combined_wl, return_index=True)
+            combined_wl = combined_wl[unique_idx]
+            combined_spec = combined_spec[unique_idx]
 
             R_pl = posterior_samples[i, r_pl_idx].item()
 
             teff, log_lum, energy = compute_teff_from_spectrum(
-                output.wavelength,
-                output.spectrum,
+                combined_wl,
+                combined_spec,
                 R_pl=R_pl,
                 distance=distance,
-                scale=simulator.scale,
+                scale=scale,
             )
 
             teffs.append(teff)

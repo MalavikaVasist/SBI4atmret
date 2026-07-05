@@ -58,9 +58,15 @@ def compute_coverage(
 
     with torch.no_grad():
         for batches in islice(zip(*test_loaders), n_batches):
-            theta, x = batch_processor.prepare_batch(batches, test_keys)
+            # Assemble batch_dict from per-loader batches using test_keys
+            batch_dict = {
+                key: batches[i]
+                for i, key in enumerate(test_keys)
+            }
 
-            posterior = net.flow(x)
+            theta, x = batch_processor.prepare_batch(batch_dict)
+
+            posterior = net.flow_forward(x)
             samples = posterior.sample((n_samples,))
             log_p = posterior.log_prob(theta)
             log_p_samples = posterior.log_prob(samples)

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 
-class EstimatorBase():
+class EstimatorBase(nn.Module):
     def __init__(self, flow: nn.Module, embedding: nn.Module):
         super().__init__()
         self.flow = flow

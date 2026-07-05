@@ -34,11 +34,17 @@ class DatasetConfig(BaseModel):
     """Configuration for dataset loading."""
     D: float
     shuffle: bool
-    order: List[str]
+    order: Optional[List[str]] = None
     dataset_path: dict[str, InstrumentPath]  # instrument → path
     pipe: ComponentConfig
     noise: ComponentConfig
     theta_mapper: Optional[ComponentConfig] = None  # Optional theta mapper for parameter space transformations
+
+    @model_validator(mode="after")
+    def _derive_order(self):
+        if self.order is None:
+            self.order = sorted(self.dataset_path.keys())
+        return self
 
 class ParameterConfig(BaseModel):
     """Configuration for a single parameter with bounds."""
@@ -89,7 +95,7 @@ class SimulatorConfig(ComponentConfig):
 
 class BaseConfig(BaseModel):
     """Top-level configuration for training."""
-    model_config = ConfigDict(extra='allow')
+    model_config = ConfigDict(extra='allow', populate_by_name=True)
     
     observation_config: ObservationConfig
     dataset_config: DatasetConfig
@@ -97,7 +103,7 @@ class BaseConfig(BaseModel):
     prior_config: PriorConfig
     estimator_config: EstimatorConfig
     training_config: TrainingConfig
-    wandb_config: WandbConfig
+    wandb_config: WandbConfig = Field(alias="wandb")
     
 
     def get_parameter_bounds(self) -> Union[List[float], List[float]]:

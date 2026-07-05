@@ -1,7 +1,7 @@
 
 from typing import Callable
 
-from PipeBase import BasePipe
+from sbi4atmret.datasets.pipes.PipeBase import BasePipe
 from sbi4atmret.utils.general import transform_uniform
 import torch
 import numpy as np
