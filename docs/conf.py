@@ -93,4 +93,10 @@ autodoc_mock_imports = [
     "scipy",
     "sklearn",
     "h5py",
+    "torch",
+    "pydantic",
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "tqdm",
 ]
