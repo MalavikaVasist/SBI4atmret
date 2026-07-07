@@ -13,8 +13,14 @@ Usage:
 
 import argparse
 import sys
+import os
 from pathlib import Path
 from itertools import starmap
+
+# petitRADTRANS requires this before import
+os.environ['pRT_input_data_path'] = os.path.join(
+    os.environ.get('HOME', ''), 'pRT/input_data_v2.4.9/input_data'
+)
 
 import numpy as np
 import torch
@@ -41,6 +47,13 @@ def parse_args():
                         help="Generate a single batch (for parallel jobs). If None, generates all.")
     parser.add_argument("--aggregate-only", action="store_true",
                         help="Only aggregate existing batches into train/valid/test splits.")
+    parser.add_argument("--parallel", action="store_true",
+                        help="Submit as SLURM array job via dawgz (parallel generation).")
+    parser.add_argument("--conda-env", type=str, default="WISEJ1828",
+                        help="Conda environment name for SLURM jobs.")
+    parser.add_argument("--cpus", type=int, default=1, help="CPUs per SLURM job.")
+    parser.add_argument("--ram", type=str, default="16GB", help="RAM per SLURM job.")
+    parser.add_argument("--time", type=str, default="2-00:00:00", help="Wall time per SLURM job.")
     return parser.parse_args()
 
 
@@ -203,9 +216,33 @@ def main():
         print("\nDone.")
         return
 
-    # Generate
+    # Parallel mode: submit SLURM array job via dawgz
+    if args.parallel:
+        from dawgz import job, schedule
+
+        @job(array=args.n_batches, cpus=args.cpus, ram=args.ram, time=args.time)
+        def generate_batch_job(batch_index: int):
+            for sim_name, simulator in simulators.items():
+                generate_batch_file(
+                    config, sim_name, simulator, prior,
+                    output_dir, batch_index, args.batch_size,
+                )
+
+        schedule(
+            generate_batch_job,
+            name="Dataset generation",
+            backend="slurm",
+            env=[
+                "source ~/.bashrc",
+                f"conda activate {args.conda_env}",
+            ],
+        )
+        print(f"\nSubmitted {args.n_batches} SLURM jobs.")
+        print("After all jobs complete, run with --aggregate-only to combine.")
+        return
+
+    # Single batch mode (for manual SLURM array jobs via --batch-index)
     if args.batch_index is not None:
-        # Single batch mode (for SLURM array jobs)
         for sim_name, simulator in simulators.items():
             print(f"\nGenerating batch {args.batch_index} for {sim_name}...")
             generate_batch_file(
@@ -213,22 +250,13 @@ def main():
                 output_dir, args.batch_index, args.batch_size,
             )
     else:
-        # Generate all batches sequentially
-        for sim_name, simulator in simulators.items():
-            print(f"\nGenerating {args.n_batches} batches for {sim_name}...")
-            for batch_idx in tqdm(range(args.n_batches)):
-                generate_batch_file(
-                    config, sim_name, simulator, prior,
-                    output_dir, batch_idx, args.batch_size,
-                )
-
-        # Aggregate
-        print("\nAggregating into splits...")
-        for sim_name in simulators.keys():
-            aggregate_splits(output_dir, sim_name)
+        print("Use --parallel to submit SLURM jobs, or --batch-index N for a single batch.")
+        sys.exit(1)
 
     print("\nDataset generation complete.")
 
 
 if __name__ == "__main__":
     main()
+
+

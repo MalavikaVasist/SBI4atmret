@@ -1,7 +1,6 @@
 from typing import Any, Dict, List, Optional, Union
 from importlib import import_module
 
-from sbi4atmret.utils import config
 from sbi4atmret.utils.load_utils import load_callable
 import torch
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -15,8 +14,7 @@ class InstrumentPath(BaseModel):
 
 class ConditionPaths(BaseModel):
     """Configuration for dataset paths organized by condition and instrument."""
-
-    __root__: Dict[str, InstrumentPath]  # miri/gemini/hst
+    paths: Dict[str, InstrumentPath]
 
 class ComponentConfig(BaseModel):
     """Configuration for a generic component with type and kwargs."""
@@ -27,7 +25,7 @@ class ComponentConfig(BaseModel):
 class ObservationConfig(BaseModel):
     """Configuration for observation settings."""
     source: str
-    instruments: dict[str, InstrumentPath]
+    instruments: Dict[str, InstrumentPath]
     simulated: Optional[InstrumentPath] = None
 
 class DatasetConfig(BaseModel):
@@ -35,7 +33,7 @@ class DatasetConfig(BaseModel):
     D: float
     shuffle: bool
     order: Optional[List[str]] = None
-    dataset_path: dict[str, InstrumentPath]  # instrument → path
+    dataset_path: Dict[str, InstrumentPath]  # instrument → path
     pipe: ComponentConfig
     noise: ComponentConfig
     theta_mapper: Optional[ComponentConfig] = None  # Optional theta mapper for parameter space transformations
@@ -66,7 +64,7 @@ class EstimatorConfig(BaseModel):
 
 class TrainingConfig(BaseModel):
     optimizer: ComponentConfig
-    scheduler: ComponentConfig | None = None
+    scheduler: Optional[ComponentConfig] = None
     loss: ComponentConfig
     epoch_start: int
     batch_size: int
@@ -76,7 +74,7 @@ class TrainingConfig(BaseModel):
     clip_grad_norm: float
     stop_criterion: Optional[str] = None
     checkpoint_interval: Optional[int] = None
-    name: str
+    name: Any
     device: str
     output_dir: str
 

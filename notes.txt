@@ -19,12 +19,17 @@ Evaluator
     posterior diagnostics
 
 
-# 1. Generate dataset
-python scripts/generate_dataset.py \
-    --config experiments/config_MiriGeminiHST_cloudfree.yaml \
-    --output-dir /scratch/users/mvasist/JWST/simulations/cloudfree/ \
-    --n-batches 300 \
-    --batch-size 4096
+# 1. Generate dataset  
+
+# Submit parallel SLURM jobs
+python scripts/generate_dataset.py --config ... --parallel
+
+# Single batch (for manual sbatch --array=$SLURM_ARRAY_TASK_ID)
+python scripts/generate_dataset.py --config ... --batch-index 42
+
+# Aggregate after all jobs finish
+python scripts/generate_dataset.py --config ... --aggregate-only
+
 
 # 2. Train
 python scripts/train_general_new.py \
