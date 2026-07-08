@@ -81,11 +81,6 @@ class TrainingConfig(BaseModel):
 
 class WandbConfig(BaseModel):
     project: str
-    array: int
-    cpus: int
-    gpus: int
-    ram: str
-    time: str
     title: str
 
 class SimulatorConfig(ComponentConfig):

@@ -22,11 +22,11 @@ dataset_config:
   shuffle: true
   dataset_path:
     cloudfree_miri:
-        path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI/cloudfree/
+        path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/cloudfree_miri/
     cloudfree_gemini:
-      path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/GEMINI/cloudfree/
+      path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/cloudfree_gemini/
     cloudfree_hst:
-      path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/HST/conv_rebinned/cloudfree/
+      path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/cloudfree_hst/
   pipe:
     type: pipes.pipe_cloudfree_MiriGeminiHST.MiriGeminiHSTcloudfreePipe
     kwargs:
@@ -425,9 +425,4 @@ training_config:
 
 wandb:
   project: WISE1738
-  array: 1
-  cpus: 2
-  gpus: 1
-  ram: 16GB
-  time: 10-00:00:00
-  title: "WISEJ1738 - MIRI+HST+Gemini - cloudfree - 15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT"
+  title: "WISEJ1738 - MIRI+HST+Gemini - cloudfree"
