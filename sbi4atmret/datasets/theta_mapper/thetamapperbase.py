@@ -124,11 +124,13 @@ class BaseThetaMapper:
             j = self.indices["sim_j"][inst]
             i = self.indices["sim_i"][inst]
 
-            D_inst = j.numel()
+            # D_inst = total number of params this simulator expects
+            D_inst = len(self.simulator_param_names[inst])
 
             inst_theta = torch.zeros((B, D_inst), dtype=merged_theta.dtype)
 
-            inst_theta[:, j] = merged_theta[:, i]
+            if j.numel() > 0:
+                inst_theta[:, j] = merged_theta[:, i]
 
             theta_dict[inst] = inst_theta
 

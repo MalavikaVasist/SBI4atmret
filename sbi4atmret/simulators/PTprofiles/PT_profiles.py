@@ -8,7 +8,6 @@ from typing import *
 import copy as cp
 
 
-@partial(np.vectorize, signature='(m),(n)->(n)')
 def pt_profile(theta: Union[Array, Dict], pressures: Array) -> Array:
     ## the temperature of the Nth layer is - fraction1* fraction2* .....fraction N * Tbottom 
 

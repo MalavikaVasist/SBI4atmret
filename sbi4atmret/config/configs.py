@@ -46,7 +46,8 @@ class DatasetConfig(BaseModel):
 
 class ParameterConfig(BaseModel):
     """Configuration for a single parameter with bounds."""
-    name: str
+    name: str                          # code name (matches simulator.names)
+    label: Optional[str] = None        # display name for plots (LaTeX)
     lower: float
     upper: float
     default: Optional[float] = None
@@ -108,10 +109,16 @@ class BaseConfig(BaseModel):
         return lower, upper
 
     def get_parameter_names(self) -> List[str]:
+        """Get code names (matching simulator.names)."""
         if self.prior_config is None:
             raise KeyError('No Prior section found in config')
-        names = [p.name for p in self.prior_config.parameters]
-        return names
+        return [p.name for p in self.prior_config.parameters]
+
+    def get_parameter_labels(self) -> List[str]:
+        """Get display labels for plotting (LaTeX). Falls back to name if no label."""
+        if self.prior_config is None:
+            raise KeyError('No Prior section found in config')
+        return [p.label if p.label else p.name for p in self.prior_config.parameters]
 
     def get_no_of_params(self) -> int:
         """Get the number of parameters from the Prior config."""
@@ -128,12 +135,13 @@ class BaseConfig(BaseModel):
 
         for k, v in (cfg.kwargs or {}).items():
 
-            if isinstance(v, ComponentConfig):
-                kwargs[k] = self._build_component(v)
-
-            elif isinstance(v, dict) and "type" in v:
-                kwargs[k] = self._build_component(ComponentConfig(**v))
-
+            if isinstance(v, dict) and "type" in v:
+                resolved = load_callable(ComponentConfig(**v).type)
+                nested_kwargs = v.get("kwargs", {})
+                if not nested_kwargs and callable(resolved) and not isinstance(resolved, type):
+                    kwargs[k] = resolved
+                else:
+                    kwargs[k] = self._build_component(ComponentConfig(**v))
             else:
                 kwargs[k] = v
 
@@ -198,83 +206,4 @@ class BaseConfig(BaseModel):
     
     
 
-    # def select_at_index(self, i: int) -> 'BaseConfig':
-    #     """
-    #     Create a new config with all list-valued fields reduced to their i-th element.
-        
-    #     Args:
-    #         i: Index to select from list-valued fields.
-            
-    #     Returns:
-    #         A new BaseConfig instance with scalar values.
-    #     """
-    #     # Helper function to select by index
-    #     def _select_value(value, index):
-    #         if isinstance(value, (list, tuple)):
-    #             return value[index]
-    #         return value
-        
-    #     # Select model config
-    #     model_config_dict = {}
-    #     if self.model_config:
-    #         mc = self.model_config
-    #         model_config_dict = {
-    #             'embedding': {
-    #                 'miri': _select_value(mc.embedding.miri, i),
-    #                 'gemini': _select_value(mc.embedding.gemini, i),
-    #                 'miri_output': _select_value(mc.embedding.miri_output, i),
-    #                 'gemini_output': _select_value(mc.embedding.gemini_output, i),
-    #             },
-    #             'hidden_features': _select_value(mc.hidden_features, i),
-    #             'no_of_params': _select_value(mc.no_of_params, i),
-    #             'transforms': _select_value(mc.transforms, i),
-    #             'signal': _select_value(mc.signal, i),
-    #         }
-    #         if mc.batch_size is not None:
-    #             model_config_dict['batch_size'] = _select_value(mc.batch_size, i)
-        
-    #     # Select training config
-    #     training_dict = {}
-    #     if self.training:
-    #         tc = self.training
-    #         training_dict = {
-    #             'epochs': _select_value(tc.epochs, i),
-    #             'epoch_fin': _select_value(tc.epoch_fin, i),
-    #             'clip_grad_norm': tc.clip_grad_norm,
-    #             'gradient_steps_train': tc.gradient_steps_train,
-    #             'gradient_steps_valid': tc.gradient_steps_valid,
-    #             'stop_criterion': tc.stop_criterion,
-    #             'checkpoint_interval': tc.checkpoint_interval,
-    #         }
-    #         if tc.batch_size is not None:
-    #             training_dict['batch_size'] = _select_value(tc.batch_size, i)
-    #         if tc.optimizer:
-    #             training_dict['optimizer'] = tc.optimizer
-    #         if tc.scheduler:
-    #             training_dict['scheduler'] = tc.scheduler
-        
-    #     # Select loss config
-    #     loss_dict = {}
-    #     if self.Loss:
-    #         lc = self.Loss
-    #         loss_dict = {
-    #             'loss_type': _select_value(lc.loss_type, i),
-    #         }
-    #         if lc.optimizer:
-    #             loss_dict['optimizer'] = lc.optimizer
-    #         if lc.scheduler:
-    #             loss_dict['scheduler'] = lc.scheduler
-        
-    #     # Build new config dict
-    #     config_data = {
-    #         'model_config': model_config_dict if model_config_dict else None,
-    #         'Loss': loss_dict if loss_dict else None,
-    #         'training': training_dict if training_dict else None,
-    #         'pipe': self.pipe,
-    #         'Prior': self.Prior,
-    #         'wandb': self.wandb,
-    #         'paths': self.paths,
-    #     }
-        
-    #     return BaseConfig(**config_data)
-
+   

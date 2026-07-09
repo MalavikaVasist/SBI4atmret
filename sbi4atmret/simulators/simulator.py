@@ -70,7 +70,7 @@ class Simulator:
         emission_model_diseq: Callable,
         PTprofile: Callable,
         line_species: Optional[List[str]] = None,
-        cloud_species: Optional[list[str]] = None,
+        cloud_species: Optional[List[str]] = None,
         rayleigh_species: Optional[List[str]] = None,
         continuum_opacities: Optional[List[str]] = None,
         names: Optional[List[str]] = None,
@@ -136,7 +136,7 @@ class Simulator:
             for k, v in default.items()
         }
 
-        self.scale = self.simconfig["scale"]
+        self.scale = float(self.simconfig["scale"])
 
         # -----------------------------------
         # atmosphere
@@ -192,6 +192,7 @@ class Simulator:
             parameters,
             pressures=pressures,
         )
+
 
         result = self._compute_emission(
             parameters,
@@ -259,33 +260,29 @@ class Simulator:
         temperatures: np.ndarray,
     ) -> Dict[str, Any]:
 
-        if self.simconfig.get(
-            "contribution",
-            True,
-        ):
-
-            wv, spectrum, contribution = (
-                self.emission_model_diseq(
-                    self.atmosphere,
-                    parameters,
-                    pressures,
-                    temperatures,
-                )
-            )
-
-            return {
-                "wavelength": wv,
-                "spectrum": spectrum,
-                "contribution": contribution,
-            }
-
-        wv, spectrum = self.emission_model_diseq(
+        result = self.emission_model_diseq(
             self.atmosphere,
             parameters,
             pressures,
             temperatures,
         )
 
+        # Handle failed simulation (returns None, None)
+        if result[0] is None:
+            return {
+                "wavelength": None,
+                "spectrum": None,
+            }
+
+        if self.simconfig.get("contribution", True) and len(result) == 3:
+            wv, spectrum, contribution = result
+            return {
+                "wavelength": wv,
+                "spectrum": spectrum,
+                "contribution": contribution,
+            }
+
+        wv, spectrum = result[0], result[1]
         return {
             "wavelength": wv,
             "spectrum": spectrum,

@@ -42,34 +42,32 @@ def emission_model_diseq(pRT_object,
                          parameters,
                          p_use,
                          temperatures, 
+                         
                          ):
-
-
 
     abundances, MMW, small_index, Pbases = get_abundances(p_use,
                                                   temperatures,
                                                   pRT_object.line_species,
                                                   pRT_object.cloud_species,
                                                   parameters,
-                                                  AMR =parameters['AMR'])
-    
+                                                  )
     
     # Only include the high resolution pressure array near the cloud base.
     if abundances is None:
         return None, None
     
-    if parameters['AMR']:
+    if parameters['AMR'].value:
+        assert len(temperatures) == len(pressures)
         temperatures = temperatures[small_index]
-        pressures = p_use[small_index] ## AMR meshgrid of p_use -> 1000[meshgrid] in bar
+        pressures = p_use[small_index]
         MMW = MMW[small_index]
-        pRT_object.press = pressures * 1e6 ##in cgs- converted from bar
+        pRT_object.press = pressures * 1e6
     else:
-        pressures = p_use ##127 in bar
+        pressures = p_use
 
-    if parameters['PT_plot_mode']:
+    if parameters['PT_plot_mode'].value:
         return pressures, temperatures
 
-    ##
     gravity = -np.inf
     if 'log_g' in parameters.keys() and 'mass' in parameters.keys():
         gravity = 10**parameters['log_g'].value
@@ -88,8 +86,9 @@ def emission_model_diseq(pRT_object,
     if len(pRT_object.cloud_species):
         sigma_lnorm, fseds, kzz, b_hans, radii, distribution = fc.setup_clouds(pressures, parameters, pRT_object.cloud_species)
     else: 
-        sigma_lnorm, fseds, kzz, b_hans, radii, distribution = None
+        sigma_lnorm, fseds, kzz, b_hans, radii, distribution = None, None, None, None, None, None
 
+    contribution = False
     if "contribution" in parameters.keys():
         contribution = parameters["contribution"].value
 
@@ -98,13 +97,13 @@ def emission_model_diseq(pRT_object,
                         abundances,
                         gravity,
                         MMW,
-                        contribution =  contribution,
-                        fsed = fseds,
-                        Kzz = kzz,
-                        sigma_lnorm = sigma_lnorm,
-                        b_hans = b_hans,
-                        radius = radii,
-                        dist = distribution, 
+                        contribution=contribution,
+                        fsed=fseds,
+                        Kzz=kzz,
+                        sigma_lnorm=sigma_lnorm,
+                        b_hans=b_hans,
+                        radius=radii,
+                        dist=distribution, 
                         )
 
     # Getting the model into correct units (Jy)
@@ -115,15 +114,13 @@ def emission_model_diseq(pRT_object,
                                   R_pl,
                                   parameters['D_pl'].value)
     
-    
     if contribution:
         return wlen_model, spectrum_model, np.abs(pRT_object.contr_em)
     else: 
         return wlen_model, spectrum_model
 
 
-
-def fixed_length_amr(p_clouds, pressures, scaling = 10, width = 3):
+def fixed_length_amr(p_clouds, pressures, scaling=10, width=3):
     r"""This function takes in the cloud base pressures for each cloud,
     and returns an array of pressures with a high resolution mesh
     in the region where the clouds are located.
@@ -203,9 +200,7 @@ def get_abundances(pressures, temperatures, line_species, cloud_species, paramet
         parameters : dict
             A dictionary of model parameters, in particular it must contain the names C/O, Fe/H and
             log_pquench. Additionally the cloud parameters log_X_cb_Fe(c) and MgSiO3(c) must be present.
-        AMR : bool
-            Turn the adaptive mesh grid on or off. See fixed_length_amr for implementation.
-
+        
     Returns:
         abundances : dict
             Mass fraction abundances of all atmospheric species
@@ -220,29 +215,26 @@ def get_abundances(pressures, temperatures, line_species, cloud_species, paramet
 
     abundances_interp = {}
 
-    # Equilibrium chemistry - means no advection/mixing/photochemistry
+    # Equilibrium chemistry
     if "C/O" in parameters.keys():
-        # Make the abundance profile
         pquench_C = None
         if 'log_pquench' in parameters.keys():
             pquench_C = 10**parameters['log_pquench'].value
-        abundances_interp = pm.interpol_abundances(parameters['C/O'].value * np.ones_like(pressures), \
-                                                parameters['Fe/H'].value * np.ones_like(pressures), \
-                                                temperatures, \
+        abundances_interp = pm.interpol_abundances(parameters['C/O'].value * np.ones_like(pressures),
+                                                parameters['Fe/H'].value * np.ones_like(pressures),
+                                                temperatures,
                                                 pressures,
-                                                Pquench_carbon = pquench_C)
+                                                Pquench_carbon=pquench_C)
         MMW = abundances_interp['MMW']
     
     # Free chemistry abundances
     else: 
         msum = 0.0
-        # print(parameters.keys())
         for species in line_species:        
             if species.split('_')[0]+'_mol_scale' in parameters.keys():
                 abund = 10**parameters[species.split('_')[0]+'_mol_scale'].value
                 abundances_interp[species.split('_')[0]] = abund * np.ones_like(pressures)
                 msum += abund
-
             elif ('Na_' in species):
                 abundances_interp[species.split('_')[0]] = 0.9 * \
                                         1e1 ** parameters['alkali_mol_scale'].value * np.ones_like(pressures)
@@ -252,48 +244,33 @@ def get_abundances(pressures, temperatures, line_species, cloud_species, paramet
                                         1e1 ** parameters['alkali_mol_scale'].value * np.ones_like(pressures)
                 msum += 0.1 * 1e1 ** parameters['alkali_mol_scale'].value
 
-            elif species.split("_R_")[0] in parameters.keys():
-                # Cannot mix free and equilibrium chemistry. Maybe something to add?
-                abund = 10**parameters[species.split("_R_")[0]].value
-                abundances_interp[species.split('_')[0]] = abund * np.ones_like(pressures)
-                msum += abund
-
-        # Whatever's left is H2 and
         abundances_interp['H2'] = 0.766 * (1.0-msum) * np.ones_like(pressures)
         abundances_interp['He'] = 0.234 * (1.0-msum) * np.ones_like(pressures)
-        # Imposing strict limit on msum to ensure H2 dominated composition
         if msum > 1.0:
-                print(f"Abundance sum > 1.0, msum={msum}")
-                return None,None,None,None
+                return None, None, None, None
         
         MMW = calc_MMW(abundances_interp)
 
-    # Prior check all input params
-
-    # Here you see how much clouds there are
+    # Cloud setup
     clouds = {}
     Pbases = {}
 
     for cloud in cloud_species:
         cname = cloud.split("_")[0]
-        if "eq_scaling_"+cname in parameters.keys():
-            # equilibrium cloud abundance
-            Xcloud= fc.return_cloud_mass_fraction(cloud,parameters['Fe/H'].value, parameters['C/O'].value)
-            # Scaled by a constant factor
-            clouds[cname] = 10**parameters['eq_scaling_'+cname].value*Xcloud
+        if (
+            "eq_scaling_"+cname in parameters
+            and "C/O" in parameters
+            and "Fe/H" in parameters
+        ):
+            Xcloud = fc.return_cloud_mass_fraction(cloud, parameters['Fe/H'].value, parameters['C/O'].value)
+            clouds[cname] = 10**parameters['eq_scaling_'+cname].value * Xcloud
         else:
-            # Free cloud abundance
             clouds[cname] = 10**parameters['log_X_cb_'+cloud.split("_")[0]].value
 
-        # Get the cloud locations
-        # Here you see where to put those clouds 
-
-        # Free cloud bases
         if 'log_Pbase_'+cname in parameters.keys():
             Pbases[cname] = 10**parameters['log_Pbase_'+cname].value
         elif 'Pbase_'+cname in parameters.keys():
             Pbases[cname] = parameters['Pbase_'+cname].value
-        # Equilibrium locations
         elif 'Fe/H' in parameters.keys():
             Pbases[cname] = fc.simple_cdf(cname, pressures, temperatures,
                                             parameters['Fe/H'].value, parameters['C/O'].value, np.mean(MMW))
@@ -303,48 +280,41 @@ def get_abundances(pressures, temperatures, line_species, cloud_species, paramet
                                                temperatures,
                                                10**parameters['log_X_cb_'+cname].value,
                                                MMW[0])
-            
-    # print('Pbase ', Pbases)
-    # Find high resolution pressure grid and indices
-    if parameters.get('AMR') and len(Pbases) > 0:
+
+    # AMR mesh refinement
+    if parameters.get('AMR').value and len(Pbases) > 0:
         _, small_index = fixed_length_amr(np.array(list(Pbases.values())),
                                                   pressures,
                                                   parameters['pressure_scaling'].value,
-                                                  parameters['pressure_width'].value) ##keep highres mesh only around clouds
-    else :
-        small_index = np.linspace(0,pressures.shape[0]-1,pressures.shape[0], dtype = int) ## keep all 1000 layers
+                                                  parameters['pressure_width'].value)
+    else:
+        small_index = np.linspace(0, pressures.shape[0]-1, pressures.shape[0], dtype=int)
 
-    ## Here you see how to spread those clouds in the atmosphere
+    # Cloud abundances
     fseds = {}
     abundances = {}
     for cloud in cp.copy(cloud_species):
         cname = cloud.split('_')[0]
-        # Set up fseds per-cloud
         if 'fsed_'+cname in parameters.keys():
             fseds[cname] = parameters['fsed_'+cname].value
         else:
             fseds[cname] = parameters['fsed'].value
         abundances[cname] = np.zeros_like(temperatures)
-        # print(pressures[pressures < Pbases[cname]], pressures[pressures <= Pbases[cname]])
-        # abundances[cname][pressures < Pbases[cname]] = \
         abundances[cname][pressures <= Pbases[cname]] = \
-                        clouds[cname] *\
-                        (pressures[pressures <= Pbases[cname]]/\
+                        clouds[cname] * \
+                        (pressures[pressures <= Pbases[cname]] / \
                         Pbases[cname])**fseds[cname]
         abundances[cname] = abundances[cname][small_index]
 
     for species in line_species:
         if 'FeH' in species and 'Fe(c)' in Pbases:
-            # Magic factor for FeH opacity - off by factor of 2
             abunds_change_rainout = cp.copy(abundances_interp[species.split('_')[0]]/2.)
             index_ro = pressures < Pbases['Fe(c)'] 
             abunds_change_rainout[index_ro] = 0.
             abundances[species] = abunds_change_rainout[small_index]
         else:    
-            abundances[species] = abundances_interp[species.split('_')[0]][small_index] ##abundances reduced to the AMR grid for line species too if AMR = True
+            abundances[species] = abundances_interp[species.split('_')[0]][small_index]
     abundances['H2'] = abundances_interp['H2'][small_index]
     abundances['He'] = abundances_interp['He'][small_index]
 
     return abundances, MMW, small_index, Pbases
-
-
