@@ -1,4 +1,4 @@
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 import torch
 
 
@@ -12,7 +12,7 @@ class BaseThetaMapper:
     """
 
     def __init__(self, domain = None, 
-                 posterior_param_names: List[str]|None = None):
+                 posterior_param_names: Optional[List[str]] = None):
 
         self.domain = domain
 

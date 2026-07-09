@@ -1,5 +1,5 @@
 
-from typing import Callable
+from typing import Callable, Optional, List
 
 from sbi4atmret.datasets.pipes.PipeBase import BasePipe
 from sbi4atmret.utils.general import transform_uniform
@@ -9,8 +9,8 @@ import numpy as np
 
 class MiriGeminiHSTcloudfreePipe(BasePipe):
     def __init__(self,
-                posterior_names: list[str]|None = None, 
-                domain: Callable|None = None ):
+                posterior_names: Optional[List[str]] = None, 
+                domain: Optional[Callable] = None ):
         
         super().__init__(posterior_names= posterior_names, 
                          domain = domain)

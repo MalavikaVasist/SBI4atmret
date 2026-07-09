@@ -2,6 +2,7 @@
 from sbi4atmret.utils.checkpoint import load_checkpoint, load_model_state
 from sbi4atmret.runtime.batch_processor import BatchProcessor
 from pathlib import Path
+import json
 import torch
 import pandas as pd
 from tqdm import tqdm
@@ -56,6 +57,9 @@ class BaseEvaluator:
         self.eval_dir = self.savefolder / "evaluations"
         self.eval_dir.mkdir(parents=True, exist_ok=True)
 
+        # Save evaluation metadata (provenance tracking)
+        self._save_eval_metadata()
+
         # Load and setup model
         self.net = self.model.estimator
         checkpoint = load_checkpoint(self.checkpoint_path, self.device)
@@ -105,6 +109,32 @@ class BaseEvaluator:
         theta = df_theta.values
         return torch.from_numpy(theta)
 
+    def _save_eval_metadata(self):
+        """Save provenance metadata to eval_dir for traceability."""
+        import json
+
+        meta_path = self.eval_dir / "eval_metadata.json"
+        if meta_path.exists():
+            return
+
+        metadata = {
+            "checkpoint_path": str(self.checkpoint_path),
+            "device": self.device,
+            "posterior_param_names": self.pipe.posterior_names,
+            "n_params": len(self.pipe.posterior_names),
+            "simulator_names": list(self.simulator_dict.keys()),
+            "simulators": {
+                name: {
+                    "param_names": sim.names,
+                    "n_params": len(sim.names),
+                    "wavelength_range": [float(sim.a), float(sim.b)],
+                }
+                for name, sim in self.simulator_dict.items()
+            },
+        }
+
+        with open(meta_path, "w") as f:
+            json.dump(metadata, f, indent=2)
 
     def run_all(self):
         """Run all evaluation methods."""

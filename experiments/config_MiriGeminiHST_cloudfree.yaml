@@ -56,7 +56,7 @@ dataset_config:
             - VO_mol_scale
             - bfactor_noise_gemini
             - bfactor_noise_hst
-            - bfactor_noise_miri
+            - bfactor_noise_miri           
   noise:
     type: likelihoods.gaussian.Gaussian
     kwargs: {}

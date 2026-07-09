@@ -15,7 +15,7 @@ Shapes:
 
 
 from dataclasses import dataclass
-from typing import Optional, Dict, Any, Callable
+from typing import Optional, Dict, Any, Callable, List
 
 import numpy as np
 from numpy import ndarray as Array
@@ -69,11 +69,11 @@ class Simulator:
         self,
         emission_model_diseq: Callable,
         PTprofile: Callable,
-        line_species: list[str]|None = None,
+        line_species: Optional[List[str]] = None,
         cloud_species: Optional[list[str]] = None,
-        rayleigh_species: list[str]|None = None,
-        continuum_opacities: list[str]|None = None,
-        names: list[str]|None = None,
+        rayleigh_species: Optional[List[str]] = None,
+        continuum_opacities: Optional[List[str]] = None,
+        names: Optional[List[str]] = None,
         a: float = 4.9,
         b: float = 19,
         **kwargs,
