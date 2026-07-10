@@ -15,7 +15,7 @@ class BasePipe:
         self.domain = domain
         self.posterior_names = posterior_names
         self.theta_mapper = BaseThetaMapper(domain=domain, 
-                                            posterior_names=posterior_names)
+                                            posterior_param_names=posterior_names)
 
         self._mask = self._build_mask()
 
@@ -41,12 +41,12 @@ class BasePipe:
         wlen_hstsim = self.domain.sim_wlens["cloudfree_hst"]
         obs_wlen_hst = self.domain.obs_wlens["hst"]
         xh = xh[:,115:552]
-        wlen_hstsim = wlen_hstsim[:,115:552]
+        wlen_hstsim = wlen_hstsim[115:552]
         wlen_bins = self._wlenbins(obs_wlen_hst)
-    #     xx = np.stack([Data.convolve(wlen_hstsim, x, 130) for x in xh])
-    #     flux_rebinned = torch.stack([torch.from_numpy(rebin_give_width(wlen_hstsim, x, self.wlen, wlen_bins)) for x in xx])
-        xx = Data.convolve(wlen_hstsim, xh, 130)
-        flux_rebinned = torch.from_numpy(rebin_give_width(wlen_hstsim, xx, obs_wlen_hst, wlen_bins))
+        xx = np.stack([Data.convolve(wlen_hstsim, x, 130) for x in xh])
+        flux_rebinned = torch.stack([torch.from_numpy(rebin_give_width(wlen_hstsim, x, obs_wlen_hst, wlen_bins)) for x in xx])
+        # xx = Data.convolve(wlen_hstsim, xh, 130)
+        # flux_rebinned = torch.from_numpy(rebin_give_width(wlen_hstsim, xx, obs_wlen_hst, wlen_bins))
         return flux_rebinned
        
     @property

@@ -360,6 +360,20 @@ def main():
         print(f"Config validation failed: {exc}")
         sys.exit(1)
 
+    # Output directory
+    if args.output_dir:
+        output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Aggregate only — no need to build simulators
+    if args.aggregate_only:
+        sim_names = list(config.simulator_config.keys())
+        for sim_name in sim_names:
+            print(f"\nAggregating {sim_name}...")
+            aggregate_splits(output_dir, sim_name)
+        print("\nDone.")
+        return
+
     # Build prior
     prior = config.build_prior()
     print(f"Prior: {config.get_no_of_params()} parameters")
@@ -371,7 +385,6 @@ def main():
     # Build theta mapper (knows how merged params map to per-simulator params)
     from sbi4atmret.datasets.theta_mapper.thetamapperbase import BaseThetaMapper
 
-    # Create a minimal domain-like object for theta mapper
     class _MinimalDomain:
         def __init__(self, simulator_dict):
             self.simulator_dict = simulator_dict
@@ -382,21 +395,7 @@ def main():
     )
     print(f"Theta mapper: {len(theta_mapper.simulator_names)} simulators, "
           f"{theta_mapper.n_total} merged params")
-
-    # Output directory
-    if args.output_dir:
-        output_dir = Path(args.output_dir)
-
-    output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output: {output_dir}")
-
-    # Aggregate only
-    if args.aggregate_only:
-        for sim_name in simulators.keys():
-            print(f"\nAggregating {sim_name}...")
-            aggregate_splits(output_dir, sim_name)
-        print("\nDone.")
-        return
 
     # =========================================================
     # RESIMULATION MODE: --input-dir provided

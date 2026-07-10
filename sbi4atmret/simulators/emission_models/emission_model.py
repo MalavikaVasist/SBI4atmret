@@ -45,6 +45,11 @@ def emission_model_diseq(pRT_object,
                          
                          ):
 
+    '''
+        Author: code from pRT version 2.6.7.
+
+    '''
+
     abundances, MMW, small_index, Pbases = get_abundances(p_use,
                                                   temperatures,
                                                   pRT_object.line_species,
@@ -61,9 +66,9 @@ def emission_model_diseq(pRT_object,
         temperatures = temperatures[small_index]
         pressures = p_use[small_index]
         MMW = MMW[small_index]
-        pRT_object.press = pressures * 1e6
+        pRT_object.press = pressures * 1e6 ## here you redefine the grid to into a specific region
     else:
-        pressures = p_use
+        pressures = p_use ## else keep 127 grid
 
     if parameters['PT_plot_mode'].value:
         return pressures, temperatures

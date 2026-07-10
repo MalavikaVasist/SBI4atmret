@@ -162,8 +162,8 @@ simulator_config:
       contribution: true
       PT_plot_mode: false
       conv: true
-      a: 4.9
-      b: 19
+      a: 0.98
+      b: 2.2
 
   cloudfree_gemini:
     type: simulators.simulator.Simulator
@@ -228,8 +228,8 @@ simulator_config:
       contribution: true
       PT_plot_mode: false
       conv: true
-      a: 4.9
-      b: 19
+      a: 0.98
+      b: 2.2
 
 prior_config:
   distribution:

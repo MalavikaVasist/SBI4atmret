@@ -244,6 +244,8 @@ class Simulator:
             prt.nat_cst.m_jup
         )
 
+        theta_dict["D_pl"] *= prt.nat_cst.pc
+
         return {
             k: prm.Parameter(
                 name=k,
