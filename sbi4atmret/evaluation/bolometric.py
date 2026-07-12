@@ -165,10 +165,11 @@ class BolometricEvaluator:
             posterior_samples = posterior_samples.unsqueeze(0)
 
         posterior_samples = posterior_samples[:n_samples]
+        n_samples = posterior_samples.shape[0]  # update to actual count after truncation
         theta_dicts = self.pipe.split_theta(posterior_samples)
 
         # Get R_pl index from posterior names
-        r_pl_idx = list(self.pipe.posterior_names).index("$R_P$")
+        r_pl_idx = list(self.pipe.posterior_names).index("R_pl")
 
         teffs = []
         log_lums = []
@@ -179,16 +180,34 @@ class BolometricEvaluator:
             all_wavelengths = []
             all_spectra = []
             scale = None
+            valid = True
 
             for sim_name, simulator in self.simulator_dict.items():
                 theta_i = theta_dicts[sim_name][i].numpy()
-                output = simulator(theta_i)
+                try:
+                    output = simulator(theta_i)
+                except Exception:
+                    valid = False
+                    break
+
+                if output.wavelength is None or np.ndim(output.wavelength) == 0:
+                    valid = False
+                    break
+                if output.spectrum is None or np.ndim(output.spectrum) == 0:
+                    valid = False
+                    break
 
                 all_wavelengths.append(output.wavelength)
                 all_spectra.append(output.spectrum)
 
                 if scale is None:
                     scale = simulator.scale
+
+            if not valid or len(all_wavelengths) == 0:
+                teffs.append(np.nan)
+                log_lums.append(np.nan)
+                energies.append(np.nan)
+                continue
 
             # Concatenate and sort by wavelength
             combined_wl = np.concatenate(all_wavelengths)

@@ -93,8 +93,8 @@ class BaseEvaluator:
         if not only_returning: 
             with torch.no_grad():
                 theta = torch.cat([
-                    posterior.sample((2**14,)).cpu()
-                    for _ in tqdm(range(2**6))
+                    posterior.sample((2**4,)).cpu()
+                    for _ in tqdm(range(2**1))
                 ])
                 theta = theta.squeeze()
 
@@ -138,10 +138,12 @@ class BaseEvaluator:
 
     def run_all(self):
         """Run all evaluation methods."""
-        self.run_coverage()
-        self.run_consistency()
-        self.run_PT()
-        self.run_corner()
+        # self.run_coverage()
+        # self.run_consistency()
+        # self.run_PT()
+        # self.run_corner()
+        self.run_bolometric()
+
 
     def IS_corner(
         self,
@@ -646,7 +648,6 @@ class BaseEvaluator:
 
             result = bol_eval.compute_bolometric(
                 posterior_samples,
-                sim_name=sim_name,
                 n_samples=n_samples,
                 distance=distance,
             )

@@ -2,7 +2,7 @@
 from typing import Callable, Optional, List
 
 from sbi4atmret.datasets.pipes.PipeBase import BasePipe
-from sbi4atmret.utils.general import transform_uniform
+from sbi4atmret.utils.general import transform_uniform, simname_from_instrument
 import torch
 import numpy as np
 
@@ -40,8 +40,8 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
         thetag, xg = batch_dict["cloudfree_gemini"]
         thetah, xh = batch_dict["cloudfree_hst"]
 
-        idxg = self.domain.sim_param_index["cloudfree_gemini"]["bfactor_noise_g"]
-        idxh = self.domain.sim_param_index["cloudfree_hst"]["bfactor_noise_h"]
+        idxg = self.domain.sim_param_index["cloudfree_gemini"]["bfactor_noise_gemini"]
+        idxh = self.domain.sim_param_index["cloudfree_hst"]["bfactor_noise_hst"]
 
         thetag[:, idxg] = transform_uniform(
             thetag[:, idxg], -17, -11, -15, -7
@@ -58,19 +58,7 @@ class MiriGeminiHSTcloudfreePipe(BasePipe):
 
         return batch_dict
         
-    def merge_spec(self, batch_dict):
-        ## spec
-        x_dict = {
-            inst: batch_dict[inst][1]
-            for inst in self.theta_mapper.simulator_names
-        }
 
-         ## merge x
-        xinst = torch.hstack((x_dict["cloudfree_hst"], x_dict["cloudfree_gemini"]))[:,self.domain.unsort_index]
-        x = torch.hstack((xinst, x_dict["cloudfree_miri"]))
-        x = torch.cat([x, x_dict["cloudfree_gemini"], x_dict["cloudfree_hst"]], dim=-1)
-
-        return x
     
 
 # experiment = Experiment(

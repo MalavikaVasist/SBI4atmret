@@ -1,5 +1,5 @@
 
-import nn
+import torch.nn as nn
 from lampe.inference import NPELoss as LampeNPELoss
 import torch
 

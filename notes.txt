@@ -22,7 +22,7 @@ Evaluator
 # 1. Generate dataset  
 
 # Submit parallel SLURM jobs
-python scripts/generate_dataset.py --config ... --parallel
+python scripts/generate_dataset.py --config ... --parallel --cpus --gpus 
 
 # Single batch (for manual sbatch --array=$SLURM_ARRAY_TASK_ID)
 python scripts/generate_dataset.py --config ... --batch-index 42

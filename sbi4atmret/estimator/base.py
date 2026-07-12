@@ -7,12 +7,23 @@ class EstimatorBase(nn.Module):
         self.flow = flow
         self.embedding = embedding
 
-    def build(self, x_dict, theta):
-        x_emb = self.embedding(x_dict)
-        return self.flow(theta, x_emb)
+    def forward(self, theta, x):
+        """
+        Compute log probability of theta given x.
+        
+        Args:
+            theta: (B, D) or (K, B, D) parameter tensor
+            x: (B, D_x) observation tensor
+            
+        Returns:
+            log_prob: same leading shape as theta
+        """
+        x_emb = self.embedding(x.float())
+        return self.flow(theta.float(), x_emb)
 
-    def flow_forward(self, x_dict):
-        x_emb = self.embedding(x_dict)
+    def flow_forward(self, x):
+        """Return the flow distribution conditioned on x."""
+        x_emb = self.embedding(x.float())
         return self.flow.flow(x_emb)
     
 

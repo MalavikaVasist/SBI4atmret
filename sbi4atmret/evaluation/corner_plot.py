@@ -39,20 +39,20 @@ class CornerResult:
 
 def ratio_14N_15N(theta_dict):
     """Compute 14N/15N isotope ratio from named dict."""
-    N14 = 10 ** theta_dict["$NH_3$"]
-    N15 = 10 ** theta_dict["$^{15}NH_3$"]
+    N14 = 10 ** theta_dict["NH3_mol_scale"]
+    N15 = 10 ** theta_dict["15NH3_mol_scale"]
     return (N14 * 18.02) / (N15 * 17.027)
 
 
 def compute_log_gravity(theta_dict):
     """Compute log10(g) from R_pl and Mass."""
-    gravity = nc.G * (theta_dict["$Mass$"] * prt.nat_cst.m_jup) / (theta_dict["$R_P$"] * prt.nat_cst.r_jup_mean) ** 2
+    gravity = nc.G * (theta_dict["mass"] * prt.nat_cst.m_jup) / (theta_dict["R_pl"] * prt.nat_cst.r_jup_mean) ** 2
     return torch.log10(gravity)
 
 
 def compute_mass_from_logg(theta_dict):
     """Compute mass from R_pl and log g."""
-    radius = theta_dict["$R_P$"] * prt.nat_cst.r_jup_mean
+    radius = theta_dict["R_pl"] * prt.nat_cst.r_jup_mean
     gravity = 10 ** theta_dict["$\\log g$"]
     mass = (gravity * radius ** 2) / nc.G
     return mass / prt.nat_cst.m_jup
@@ -70,12 +70,12 @@ def corner_mod(
     figsize=(10, 10),
     domain=None,
     labels=None,
-    labelsize=18,
-    titlesize=20,
-    fontsize=16,
-    legend_fontsize=20,
-    xtick_labelsize=28,
-    ytick_labelsize=28,
+    labelsize=12,
+    titlesize=14,
+    fontsize=10,
+    legend_fontsize=12,
+    xtick_labelsize=10,
+    ytick_labelsize=10,
     loc="center",
     bbox_to_anchor=(0.4, 0.9),
     labl=True,
@@ -130,10 +130,8 @@ def corner_mod(
     # Build corner plot by overlaying each posterior
     fig = None
     for i, th in enumerate(theta):
-        fig = corner(
-            th,
+        corner_kwargs = dict(
             smooth=2,
-            weights=weights[i],
             domain=domain,
             labels=labels,
             figsize=figsize,
@@ -142,6 +140,9 @@ def corner_mod(
             color=color[i],
             figure=fig,
         )
+        if weights[i] is not None:
+            corner_kwargs["weights"] = weights[i]
+        fig = corner(th, **corner_kwargs)
 
     # Fix axis labels
     if labels is not None:
@@ -239,7 +240,7 @@ class CornerEvaluator:
             param_names_to_plot = list(posterior_names)
 
         # Get bounds from config
-        prior_params = {p.name: p for p in self.config.prior.parameters}
+        prior_params = {p.name: p for p in self.config.prior_config.parameters}
 
         # Process each posterior
         processed_thetas = []

@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 
 import os
+os.environ['pRT_input_data_path'] = '/media/mvasist/Elements/PhDprojects/scratch/input_data_v2.4.9/input_data'
+os.environ['WANDB_API_KEY'] = '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'
+
 from pathlib import Path
 import yaml
 from pydantic import ValidationError

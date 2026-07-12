@@ -2,14 +2,16 @@
 
 
 
+import torch
+
+
 def transform_uniform(x, a, b, c, d):
-        # Check if x is within the original range
-        if a <= x <= b:
-            # Apply the transformation formula
-            y = c + ((x - a) * (d - c)) / (b - a)
-            return y
-        else:
-            raise ValueError(f"x must be in the range [{a}, {b}]")
+    """
+    Linearly map x from range [a, b] to range [c, d].
+    Works on both scalars and tensors (batch-compatible).
+    """
+    y = c + ((x - a) * (d - c)) / (b - a)
+    return y
 
 
 
@@ -24,6 +26,20 @@ def instrument_from_simname(sim_name: str) -> str:
         "cloudy_hst"       -> "hst"
     """
     return sim_name.split("_", 1)[1]
+
+
+def simname_from_instrument(inst_name: str, simulator_names: list) -> str:
+    """
+    Find the simulator name that ends with the instrument name.
+
+    Examples:
+        ("miri", ["cloudfree_miri", "cloudfree_gemini", ...]) -> "cloudfree_miri"
+        ("hst", ["cloudfree_hst", ...]) -> "cloudfree_hst"
+    """
+    for sim_name in simulator_names:
+        if sim_name.endswith("_" + inst_name):
+            return sim_name
+    raise KeyError(f"No simulator found for instrument '{inst_name}'")
 
 
 def find_map_sample(net, theta, x_obs, device="cuda", batch_size=1000):
@@ -43,7 +59,7 @@ def find_map_sample(net, theta, x_obs, device="cuda", batch_size=1000):
     """
     import torch
 
-    posterior = net.flow(x_obs.to(device))
+    posterior = net.flow_forward(x_obs.to(device))
 
     max_log_p = float("-inf")
     max_index = -1

@@ -208,6 +208,9 @@ def generate_batch_all_simulators(
     The atmosphere (shared parameters) remains the same across instruments.
     Only instrument-specific parameters (e.g., b-factors) differ.
 
+    If a sample produces NaN/Inf/exception for ANY simulator, it is dropped
+    from ALL simulators to keep samples aligned.
+
     Args:
         simulators: {sim_name: Simulator} dict
         prior: prior over the merged (posterior) parameter space
@@ -223,34 +226,47 @@ def generate_batch_all_simulators(
     # Split into per-simulator parameter vectors
     theta_dict = theta_mapper.split_theta(theta_merged)
 
-    results = {}
+    # Simulate all instruments, track validity per sample
+    raw_spectra = {sim_name: [None] * batch_size for sim_name in simulators}
+    valid_mask = np.ones(batch_size, dtype=bool)
 
     for sim_name, simulator in simulators.items():
-        theta_inst = theta_dict[sim_name]  # (B, D_inst)
+        theta_inst = theta_dict[sim_name]
 
-        spectra = []
-        valid_thetas = []
+        for i in range(batch_size):
+            if not valid_mask[i]:
+                continue  # already marked invalid by another simulator
 
-        for i in range(theta_inst.shape[0]):
-            theta_i = theta_inst[i].numpy()
             try:
-                output = simulator(theta_i)
-                spectra.append(torch.from_numpy(output.spectrum).float())
-                valid_thetas.append(theta_inst[i])
-            except Exception:
-                continue
+                output = simulator(theta_inst[i].numpy())
+                spectrum = torch.from_numpy(output.spectrum).float()
 
-        if not spectra:
+                # Check for NaN/Inf
+                if torch.any(torch.isnan(spectrum)) or torch.any(torch.isinf(spectrum)):
+                    valid_mask[i] = False
+                else:
+                    raw_spectra[sim_name][i] = spectrum
+            except Exception:
+                valid_mask[i] = False
+
+    # Second pass: mark invalid across all simulators
+    # (a sample marked invalid in one simulator must be removed from all)
+    valid_indices = np.where(valid_mask)[0]
+
+    results = {}
+    for sim_name in simulators:
+        theta_inst = theta_dict[sim_name]
+
+        if len(valid_indices) == 0:
             results[sim_name] = (
                 torch.zeros(0, theta_inst.shape[-1]),
                 torch.zeros(0, 1),
             )
             continue
 
-        theta_out = torch.stack(valid_thetas)
-        x_out = torch.stack(spectra)
+        theta_out = theta_inst[valid_indices]
+        x_out = torch.stack([raw_spectra[sim_name][i] for i in valid_indices])
 
-        theta_out, x_out = filter_nan_inf(theta_out, x_out)
         results[sim_name] = (theta_out, x_out)
 
     return results

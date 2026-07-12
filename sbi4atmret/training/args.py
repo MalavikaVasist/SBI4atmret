@@ -3,76 +3,54 @@ from pathlib import Path
 
 
 def parse_args():
-    """Parse command line arguments for training script.
-    
-    Returns:
-        argparse.Namespace: Parsed arguments containing:
-            - config_dir: Path to directory containing config.yaml
-    """
+    """Parse command line arguments for training/evaluation script."""
     parser = argparse.ArgumentParser(
-        description="Train SBI model with Pydantic config validation",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python train_general_new.py --config-dir experiments/
-  python train_general_new.py -c /path/to/config/dir/
-        """
+        description="Train or evaluate SBI model",
     )
-    
+
     parser.add_argument(
         '--config-dir',
-        '-c',
         type=str,
         default='experiments',
-        help='Directory containing config.yaml file (default: experiments)',
+        help='Directory containing config YAML file (default: experiments)',
     )
 
     parser.add_argument(
         '--action',
-        '-c',
         type=str,
-        default='experiments',
-        help='',
-    )
-    
-    parser.add_argument(
-    '--checkpoint-path',
-    '-c',
-    type=str,
-    default='experiments/model1',
-    help='config_model1.yaml file (default: config_model1.yaml)',
+        choices=['train', 'evaluate'],
+        default='train',
+        help='Action to perform: train or evaluate',
     )
 
     parser.add_argument(
-    '--resume',
-    '-c',
-    type=str,
-    default='False',
-    help='',
+        '--checkpoint-path',
+        type=str,
+        default=None,
+        help='Path to checkpoint file for resuming or evaluation',
     )
 
+    parser.add_argument(
+        '--resume',
+        action='store_true',
+        default=False,
+        help='Resume training from checkpoint',
+    )
 
     return parser.parse_args()
 
 
 def get_config_path(config_dir: str) -> Path:
-    """Get absolute path to config.yaml file.
-    
-    Args:
-        config_dir: Directory containing config.yaml
-        
-    Returns:
-        Path: Absolute path to config.yaml
-        
-    Raises:
-        FileNotFoundError: If config.yaml does not exist
-    """
-    config_path = Path(config_dir) / 'config.yaml'
-    
+    """Get absolute path to config YAML file."""
+    config_path = Path(config_dir)
+
+    # If it's a directory, look for config.yaml inside
+    if config_path.is_dir():
+        config_path = config_path / 'config.yaml'
+
     if not config_path.exists():
         raise FileNotFoundError(
-            f"Config file not found: {config_path.resolve()}\n"
-            f"Please provide a valid config directory with -c/--config-dir"
+            f"Config file not found: {config_path.resolve()}"
         )
-    
+
     return config_path.resolve()

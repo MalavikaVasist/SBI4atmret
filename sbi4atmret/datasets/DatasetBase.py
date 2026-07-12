@@ -65,10 +65,15 @@ class Dataset:
         """Build a single H5Dataset loader."""
 
         path = Path(datapath)
-        split_path = path / split
+        split_path = path / f"{split}.h5"
 
         if not split_path.exists():
-            raise FileNotFoundError(f"Split path does not exist: {split_path}")
+            # Also try without extension (directory-based splits)
+            split_path = path / split
+            if not split_path.exists():
+                raise FileNotFoundError(
+                    f"Split not found as '{path / f'{split}.h5'}' or '{path / split}'"
+                )
 
         return H5Dataset(
             split_path,

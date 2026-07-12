@@ -21,7 +21,7 @@ class Trainer:
         ## domain components
         self.domain = context.runtime.domain
 
-        self.simulator = self.domain.simulators
+        self.simulator = self.domain.simulator_dict
         self.observation = self.domain.observation
         self.pipe = self.domain.pipe
         self.noise = self.domain.noise
@@ -75,7 +75,7 @@ class Trainer:
         )
 
         # --- save path ---
-        output_dir = Path(self.config.trainer_config.output_dir) ##runs
+        output_dir = Path(self.config.training_config.output_dir) ##runs
         self.run_dir = output_dir / self.run.name  ##runs/model_name
         self.run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -127,7 +127,6 @@ class Trainer:
         for batches in islice(zip(*self.train_loaders), self.config.training_config.gradient_steps_train):
             batch_dict = self.dataset.reconstruct_batch(self.train_keys, batches)
             theta, x = self.batch_processor.prepare_batch(batch_dict)
-            theta, x  = _to_device(theta), _to_device(x)
 
             self.optimizer.zero_grad()
             loss = self.loss_fn(theta, x)
@@ -152,8 +151,8 @@ class Trainer:
 
         with torch.no_grad():
             for batches in islice(zip(*self.valid_loaders), self.config.training_config.gradient_steps_valid):
-                    theta, x = self.batch_processor.prepare_batch(batches, self.valid_keys)
-                    theta, x  = _to_device(theta), _to_device(x)
+                    batch_dict = self.dataset.reconstruct_batch(self.valid_keys, batches)
+                    theta, x = self.batch_processor.prepare_batch(batch_dict, add_noise=False, mode="train")
 
                     loss = self.loss_fn(theta, x)
                     losses.append(loss.detach().cpu())

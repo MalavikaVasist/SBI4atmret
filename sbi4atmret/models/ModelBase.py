@@ -2,7 +2,7 @@ import torch
 from typing import Union
 
 from ..config.configs import BaseConfig
-from estimator.base import EstimatorBase
+from sbi4atmret.estimator.base import EstimatorBase
 
 class BaseModel:
     """

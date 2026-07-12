@@ -5,16 +5,13 @@ observation_config:
   source: WISEJ1738
   instruments: 
     hst:
-      # wavelength_range: [0.98, 2.2]
-      path: JWST/observations/WISEJ1738/HST/patchy/spectrum.csv
+      path: /home/mvasist/Documents/testing/observations/WISEJ1738/hst/spectrum.csv
     gemini:
-      # wavelength_range: [0.98, 2.2]
-      path: JWST/observations/WISEJ1738/GEMINI/patchy/spectrum.csv
+      path: /home/mvasist/Documents/testing/observations/WISEJ1738/gemini/spectrum.csv
     miri:
-      # wavelength_range: [4.9, 19]
-      path: JWST/observations/WISEJ1738/MIRI/cloudfree/spectrum.csv
+      path: /home/mvasist/Documents/testing/observations/WISEJ1738/miri/spectrum.csv
   simulated: 
-    path: JWST/observations/WISEJ1738/simulations/cloudfree/spectrum.csv
+    path: /home/mvasist/Documents/testing/observations/WISEJ1738/simulations/mostprobCF_simulation0_noisefree.csv
 
 
 dataset_config:
@@ -22,16 +19,16 @@ dataset_config:
   shuffle: true
   dataset_path:
     cloudfree_miri:
-        path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/cloudfree_miri/
+        path: /home/mvasist/Documents/testing/simulations/cloudfree/cloudfree_miri/
     cloudfree_gemini:
-      path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/cloudfree_gemini/
+      path: /home/mvasist/Documents/testing/simulations/cloudfree/cloudfree_gemini/
     cloudfree_hst:
-      path: JWST/simulations/sim_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/cloudfree_hst/
+      path: /home/mvasist/Documents/testing/simulations/cloudfree/cloudfree_hst/
   pipe:
-    type: pipes.pipe_cloudfree_MiriGeminiHST.MiriGeminiHSTcloudfreePipe
+    type: datasets.pipes.pipe_cloudfree_MiriGeminiHST.MiriGeminiHSTcloudfreePipe
     kwargs: {}        
   noise:
-    type: likelihoods.gaussian.Gaussian
+    type: likelihoods.gaussian.GaussianNoise
     kwargs: {}
   
 simulator_config:
@@ -375,9 +372,10 @@ estimator_config:
       hidden_features: [512]
       transforms: 5
       signal: 32
+      build: NAF
 
   embedding:
-    type: estimator.embedding.SoftClip.SoftclipResMLP
+    type: estimator.embedding.Softclip.SoftclipResMLP
     kwargs:
       bound: 100.0
       instruments:
@@ -407,7 +405,7 @@ training_config:
       threshold: 0.01
 
   loss: 
-    type: BNPELoss
+    type: training.losses.BNPELoss
     kwargs: {}
 
   epoch_start: 0
@@ -420,8 +418,8 @@ training_config:
   name: 1
   device: cpu
   checkpoint_interval: 100
-  output_dir: JWST/runs/WISEJ1738/model_15NH3HCNTiOVOXH2OcLPbasefsedkzzslnbfacM_unregPT/MIRI+HST+Gemini/cloudfree/
+  output_dir: /home/mvasist/Documents/testing/runs/cloudfree/WISEJ1738/MIRI+HST+Gemini
 
 wandb:
-  project: WISE1738
-  title: "WISEJ1738 - MIRI+HST+Gemini - cloudfree"
+  project: JWST_testing
+  title: "1"

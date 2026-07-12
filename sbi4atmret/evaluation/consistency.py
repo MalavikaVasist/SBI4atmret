@@ -160,7 +160,7 @@ class ConsistencyEvaluator:
             theta, x_pred = predictive_dict[sim_name]
 
             instrument_name = instrument_from_simname(sim_name)
-            x_obs = self.observation.observation_dict[instrument_name]
+            x_obs = torch.tensor(self.observation.observation_dict[instrument_name]["flux"])
 
             sigma = self.noise.compute_sigma(theta, sim_name)
             res = (x_pred - x_obs) / (sigma * self.domain.scale)
@@ -282,7 +282,7 @@ class ConsistencyEvaluator:
             )
 
         ax1.plot(
-            wavelength, self.x_obs.squeeze.cpu().numpy(),
+            wavelength, self.x_obs.squeeze().cpu().numpy(),
             color="black", linewidth=0.4,
             label=r"$x_{\mathrm{obs}}$",
         )

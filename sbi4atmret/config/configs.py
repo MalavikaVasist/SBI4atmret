@@ -149,11 +149,12 @@ class BaseConfig(BaseModel):
 
     # ---------- SPECIFIC BUILDERS ----------
     def build_embedding(self):
-        return self._build_component(self.estimator_config.embedding)
+        cls = load_callable(self.estimator_config.embedding.type)
+        return cls(self.estimator_config.embedding)
 
     def build_flow(self):
-        return self._build_component(
-            self.estimator_config.flow,
+        cls = load_callable(self.estimator_config.flow.type)
+        return cls(
             FlowConfig=self.estimator_config.flow,
             PriorConfig=self,
             EmbeddingConfig=self.estimator_config.embedding,
@@ -175,23 +176,34 @@ class BaseConfig(BaseModel):
         )
 
     def build_optimizer(self, parameters):
-        return self._build_component(
-            self.training_config.optimizer,
-            params=parameters
-        )
+        opt_cfg = self.training_config.optimizer
+        # Resolve short names like "AdamW" from torch.optim
+        opt_cls = getattr(optim, opt_cfg.type, None)
+        if opt_cls is None:
+            opt_cls = load_callable(opt_cfg.type)
+        kwargs = dict(opt_cfg.kwargs or {})
+        # Rename init_lr → lr if needed
+        if "init_lr" in kwargs:
+            kwargs["lr"] = kwargs.pop("init_lr")
+        return opt_cls(parameters, **kwargs)
 
     def build_scheduler(self, optimizer):
         if self.training_config.scheduler is None:
             return None
-        return self._build_component(
-            self.training_config.scheduler,
-            optimizer=optimizer
-        )
+        sched_cfg = self.training_config.scheduler
+        # Resolve short names like "ReduceLROnPlateau" from torch.optim.lr_scheduler
+        sched_cls = getattr(optim.lr_scheduler, sched_cfg.type, None)
+        if sched_cls is None:
+            sched_cls = load_callable(sched_cfg.type)
+        kwargs = dict(sched_cfg.kwargs or {})
+        # Rename min_lr → min_lr (ReduceLROnPlateau uses 'min_lr')
+        return sched_cls(optimizer, **kwargs)
     
  
     def build_pipe(self, domain):
         return self._build_component(self.dataset_config.pipe, 
-                                     domain = domain)
+                                     domain=domain,
+                                     posterior_names=self.get_parameter_names())
     
 
     def build_noise(self, domain):

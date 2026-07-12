@@ -5,6 +5,7 @@ from petitRADTRANS.retrieval.rebin_give_width import rebin_give_width
 from petitRADTRANS.retrieval.data import Data
 
 from sbi4atmret.datasets.theta_mapper.thetamapperbase import BaseThetaMapper
+from sbi4atmret.utils.general import simname_from_instrument
 
 
 class BasePipe:
@@ -57,8 +58,7 @@ class BasePipe:
         return self.forward(*args, **kwargs)
     
     def modify_spec(self, batch_dict):
-        raise NotImplementedError
-    
+        return NotImplementedError
 
     def modify_theta(self, batch_dict):
         raise NotImplementedError
@@ -73,14 +73,31 @@ class BasePipe:
 
         return batch_dict 
     
-    def merge_spec(self, spectra):
-        raise NotImplementedError
+    def merge_spec(self, batch_dict):
+        ## spec
+        x_dict = {
+            inst: batch_dict[inst][1]
+            for inst in self.theta_mapper.simulator_names
+        }
+
+        ## merge x: concatenate all instruments in the same order as 
+        ## Observation.sort_idx was built (instruments key order from config)
+        ## then sort by wavelength using sort_idx
+        obs_inst_order = list(self.domain.observation.instruments.keys())
+        x_concat = torch.hstack([
+            x_dict[simname_from_instrument(inst, self.theta_mapper.simulator_names)]
+            for inst in obs_inst_order
+        ])
+        x = x_concat[:, self.domain.observation.sort_idx]
+
+        return x
+    
     
     def merge_theta(self, batch_dict):
         ## theta
         theta_dict = {
                     inst: batch_dict[inst][0]
-                    for inst in self.theta_mapper.instrument_names
+                    for inst in self.theta_mapper.simulator_names
                 }
         theta = self.theta_mapper.merge_theta(theta_dict)
 

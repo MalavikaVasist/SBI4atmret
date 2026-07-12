@@ -24,7 +24,7 @@ class GaussianNoise(BaseNoise):
         Returns sigma_new: (B, 1) tensor.
         """
         instrument = instrument_from_simname(sim_name)
-        noise_name = "b_" + instrument
+        noise_name = "bfactor_noise_" + instrument
         b_indx = self.domain.sim_param_index[sim_name][noise_name]
         b = torch.unsqueeze(theta[:, b_indx], 1)
         return self.flattening_likelihood(instrument, b)
