@@ -138,10 +138,10 @@ class BaseEvaluator:
 
     def run_all(self):
         """Run all evaluation methods."""
-        # self.run_coverage()
-        # self.run_consistency()
-        # self.run_PT()
-        # self.run_corner()
+        self.run_coverage()
+        self.run_consistency()
+        self.run_PT()
+        self.run_corner()
         self.run_bolometric()
 
 
