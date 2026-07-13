@@ -1,1 +1,1 @@
-from .Softclip import SoftclipResMLP
+from .softclip import SoftclipResMLP

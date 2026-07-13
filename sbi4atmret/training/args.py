@@ -31,6 +31,14 @@ def parse_args():
     )
 
     parser.add_argument(
+        '--name',
+        type=str,
+        default=None,
+        help='Run name. Used as wandb title and run directory name. '
+             'If not provided, uses wandb auto-generated name.',
+    )
+
+    parser.add_argument(
         '--resume',
         action='store_true',
         default=False,

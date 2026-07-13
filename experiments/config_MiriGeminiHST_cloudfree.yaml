@@ -419,7 +419,6 @@ training_config:
   gradient_steps_valid: 170
   clip_grad_norm: 1.0
   stop_criterion: late_lr
-  name: 1
   device: cpu
   checkpoint_interval: 100
   output_dir: /home/mvasist/Documents/testing/runs/cloudfree/WISEJ1738/MIRI+HST+Gemini

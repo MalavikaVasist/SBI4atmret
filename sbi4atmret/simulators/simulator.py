@@ -27,6 +27,7 @@ from petitRADTRANS import nat_cst as nc
 from joblib import Memory
 
 from .pressure_layers import initialize_pressure_layers
+from .protocol import SimulatorOutput
 
 
 MEMORY = Memory(".", mmap_mode="c", verbose=0)

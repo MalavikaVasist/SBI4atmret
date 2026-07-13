@@ -12,11 +12,12 @@ from itertools import islice
 
 
 class Trainer:
-    def __init__(self, model, context, config, dataset):
+    def __init__(self, model, context, config, dataset, run_name=None):
         self.model = model
         self.context = context
         self.config = config
         self.dataset = dataset
+        self.run_name = run_name  # CLI override for wandb title + directory
 
         ## domain components
         self.domain = context.runtime.domain
@@ -68,15 +69,18 @@ class Trainer:
 
         # --- wandb ---
         wandb_cfg = self.config.wandb_config
+        run_name = self.run_name or wandb_cfg.title
         self.run = wandb.init(
             project=wandb_cfg.project,
-            name=wandb_cfg.title, #model_name
+            name=run_name,
             config=self.config.model_dump()
         )
 
         # --- save path ---
-        output_dir = Path(self.config.training_config.output_dir) ##runs
-        self.run_dir = output_dir / self.run.name  ##runs/model_name
+        # Use explicit run_name for deterministic paths; fall back to wandb name
+        dir_name = self.run_name if self.run_name else self.run.name
+        output_dir = Path(self.config.training_config.output_dir)
+        self.run_dir = output_dir / dir_name
         self.run_dir.mkdir(parents=True, exist_ok=True)
 
         ## save the config in runs/model_name/config.yaml

@@ -42,8 +42,22 @@ dataset = Dataset(config)
 # Handle checkpoint path
 checkpoint_file_path = None
 if args.checkpoint_path:
-    print("Checkpoint found, resuming training!", flush=True)
     checkpoint_file_path = Path(args.checkpoint_path)
+
+# If --name is given and no checkpoint path, auto-resolve for evaluation
+if args.action == "evaluate" and checkpoint_file_path is None and args.name:
+    auto_ckpt = Path(config.training_config.output_dir) / args.name / "checkpoints" / "latest.pt"
+    if auto_ckpt.exists():
+        checkpoint_file_path = auto_ckpt
+        print(f"Auto-resolved checkpoint: {checkpoint_file_path}", flush=True)
+    else:
+        raise FileNotFoundError(
+            f"No checkpoint found at {auto_ckpt}. "
+            f"Pass --checkpoint-path explicitly or ensure training completed for run '{args.name}'."
+        )
+
+if args.checkpoint_path:
+    print(f"Using checkpoint: {checkpoint_file_path}", flush=True)
 
 if args.action == 'train':
     print("Starting training!", flush=True)
@@ -62,6 +76,7 @@ if args.action == 'train':
         model=model,
         dataset=dataset,
         context=ctx,
+        run_name=args.name,
     )
 
     trainer.train(resume=args.resume)

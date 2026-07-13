@@ -75,7 +75,6 @@ class TrainingConfig(BaseModel):
     clip_grad_norm: float
     stop_criterion: Optional[str] = None
     checkpoint_interval: Optional[int] = None
-    name: Any
     device: str
     output_dir: str
 
