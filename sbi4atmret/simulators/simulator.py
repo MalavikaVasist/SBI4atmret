@@ -33,30 +33,6 @@ MEMORY = Memory(".", mmap_mode="c", verbose=0)
 
 
 # =========================================================
-# STRUCTURED OUTPUT
-# =========================================================
-
-@dataclass(frozen=True)
-class SimulatorOutput:
-    """
-    Standardized simulator output container.
-    """
-
-    wavelength: np.ndarray
-
-    spectrum: np.ndarray
-
-    contribution: Optional[np.ndarray] = None
-
-    pressures: Optional[np.ndarray] = None
-
-    temperatures: Optional[np.ndarray] = None
-
-    metadata: Optional[Dict[str, Any]] = None
-
-    parameters: Optional[Dict[str, Any]] = None
-
-# =========================================================
 # SIMULATOR
 # =========================================================
 

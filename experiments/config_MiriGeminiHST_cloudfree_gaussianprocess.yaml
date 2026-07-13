@@ -28,13 +28,16 @@ dataset_config:
     type: datasets.pipes.pipe_cloudfree_MiriGeminiHST.MiriGeminiHSTcloudfreePipe
     kwargs: {}        
   noise:
-    type: likelihoods.gaussian.GaussianNoise
+    type: likelihoods.gaussianprocess.GaussianProcess
     kwargs:
       noise_params:
         miri: bfactor_noise_miri
         gemini: bfactor_noise_gemini
         hst: bfactor_noise_hst
-      
+      kernel: squared_exponential    # or "matern32"
+      length_scale: 0.05            # correlation length in microns
+      amplitude_fraction: 0.1       # GP amplitude as fraction of median obs sigma
+  
 simulator_config:
   cloudfree_miri:
     type: simulators.simulator.Simulator

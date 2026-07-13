@@ -381,7 +381,6 @@ estimator_config:
   embedding:
     type: estimator.embedding.softclip.SoftclipResMLP
     kwargs:
-      bound: 100.0
       instruments:
         miri:
           hidden_features: [3, 5, 7]
@@ -391,6 +390,13 @@ estimator_config:
           hidden_features: [2, 3, 5]
           input_dim: 434
           output_dim: 16
+      d_model: 64
+      nhead: 4
+      num_layers: 3
+      dim_feedforward: 256
+      dropout: 0.1
+      patch_size: 8
+      pooling: mean  # or "cls"
 
 
 training_config:
