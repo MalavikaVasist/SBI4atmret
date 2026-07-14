@@ -1,0 +1,22 @@
+name: test
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - python=3.10
+  - pip=24.2
+  - numpy=1.26.4
+  - setuptools=59.8.0
+  - joblib
+  - jupyter
+  - multinest
+  - gfortran
+  - pip:
+      - torch==2.5.1
+      - dawgz==0.4.1
+      - lampe==0.5.5
+      - wandb==0.13.3
+      - petitradtrans==2.6.7
+      - pydantic
+      - zuko

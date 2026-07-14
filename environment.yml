@@ -45,3 +45,7 @@ conda install -c conda-forge multinest
 conda install -c conda-forge gfortran
 
 pip install dawgz==0.4.1 lampe==0.5.5 wandb==0.13.3
+
+petitradtrans is 2.6.7 
+
+pydantic

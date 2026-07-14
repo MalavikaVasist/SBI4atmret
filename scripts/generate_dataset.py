@@ -493,7 +493,7 @@ def main():
     if args.parallel:
         from dawgz import job, schedule
 
-        @job(array=args.array, cpus=args.cpus, gpus=args.gpus, ram=args.ram, time=args.time)
+        @job(array=args.n_array, cpus=args.cpus, gpus=args.gpus, ram=args.ram, time=args.time)
         def generate_batch_job(array_index: int):
             generate_batch_file(
                 config, simulators, prior, theta_mapper,
@@ -509,7 +509,7 @@ def main():
                 f"conda activate {args.conda_env}",
             ],
         )
-        print(f"\nSubmitted {args.array} SLURM jobs.")
+        print(f"\nSubmitted {args.n_array} SLURM jobs.")
         print("After all jobs complete, run with --aggregate-only to combine.")
         return
 
