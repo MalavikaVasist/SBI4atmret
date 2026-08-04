@@ -41,3 +41,31 @@ python scripts/train_general_new.py \
     --config experiments/config_MiriGeminiHST_cloudfree.yaml \
     --action evaluate \
     --checkpoint-path /path/to/runs/model_name/checkpoints/latest.pt
+
+
+python scripts/generate_dataset.py \
+  --config experiments/config_MiriGeminiHST_cloudfree.yaml \
+  --output-dir /home/mvasist/Documents/testing/cloudfree \
+  --parallel \
+  --n-array 300 \
+  --batch-size 4096 \
+  --cpus 2 \
+  --gpus 1 \
+  --ram 16GB \
+  --time 2-00:00:00 \
+  --conda-env test
+Then after all SLURM jobs finish, aggregate into train/valid/test splits:
+
+
+
+python scripts/generate_dataset.py \
+  --config experiments/config_MiriGeminiHST_cloudfree.yaml \
+  --output-dir /home/mvasist/Documents/testing/cloudfree \
+  --aggregate-only
+Or for a single batch (manual testing without SLURM):
+
+python scripts/generate_dataset.py \
+  --config experiments/config_MiriGeminiHST_cloudfree.yaml \
+  --output-dir /home/mvasist/Documents/testing/cloudfree \
+  --array-index 0 \
+  --batch-size 10

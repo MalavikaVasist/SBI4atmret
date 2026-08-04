@@ -21,3 +21,34 @@ dependencies:
       - pydantic
       - zuko
       - requests
+
+
+  
+
+# 1. conda create -n test python=3.9.7 pip=24.2
+# 2. conda install -c pytorch pytorch=1.10.1
+
+# 3. conda install numpy=1.25.2 joblib=1.2.0 jupyter
+# 4. conda install -c conda-forge multinest=3.10 gfortran=11.2.0
+# 5. pip install dawgz==0.4.1 lampe==0.5.5 wandb==0.13.3
+# python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
+
+# conda config --add channels defaults
+
+
+
+# conda create -n test python=3.9 pip=24.2
+# conda activate test
+# pip install torch==2.5.1
+# python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
+# conda install numpy 
+# conda install joblib 
+# conda install jupyter
+# conda install -c conda-forge multinest
+# conda install -c conda-forge gfortran
+
+# pip install dawgz==0.4.1 lampe==0.5.5 wandb==0.13.3
+
+# petitradtrans is 2.6.7 
+
+# pydantic
