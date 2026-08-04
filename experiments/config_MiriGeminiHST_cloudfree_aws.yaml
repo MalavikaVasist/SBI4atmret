@@ -1,0 +1,428 @@
+scratch_env: SCRATCH
+home_env: HOME
+
+observation_config:
+  source: WISEJ1738
+  instruments: 
+    hst:
+      path: observations/WISEJ1738/hst/spectrum.csv
+    gemini:
+      path: observations/WISEJ1738/gemini/spectrum.csv
+    miri:
+      path: observations/WISEJ1738/miri/spectrum.csv
+  simulated: 
+    path: observations/WISEJ1738/simulations/mostprobCF_simulation0_noisefree.csv
+
+
+dataset_config:
+  D: 7.34
+  shuffle: true
+  dataset_path:
+    cloudfree_miri:
+        path: simulations/cloudfree/cloudfree_miri/
+    cloudfree_gemini:
+      path: simulations/cloudfree/cloudfree_gemini/
+    cloudfree_hst:
+      path: simulations/cloudfree/cloudfree_hst/
+  pipe:
+    type: datasets.pipes.pipe_cloudfree_MiriGeminiHST.MiriGeminiHSTcloudfreePipe
+    kwargs: {}        
+  noise:
+    type: likelihoods.gaussian.GaussianNoise
+    kwargs:
+      noise_params:
+        miri: bfactor_noise_miri
+        gemini: bfactor_noise_gemini
+        hst: bfactor_noise_hst
+      
+simulator_config:
+  cloudfree_miri:
+    type: simulators.simulator.Simulator
+    kwargs:
+      emission_model_diseq:
+        type: simulators.emission_models.emission_model.emission_model_diseq
+        kwargs: {}
+      PTprofile:
+        type: simulators.PTprofiles.PT_profiles.pt_profile
+        kwargs: {}
+      line_species: 
+        - CH4_hargreaves
+        - H2O_Exomol
+        - CO2
+        - CO_all_iso_HITEMP
+        - H2S
+        - NH3
+        - PH3
+        - 15NH3
+        - HCN
+        - TiO_all_Exomol
+        - VO
+      cloud_species: null
+      rayleigh_species: [H2, He]
+      continuum_opacities: [H2-H2, H2-He]
+      names: 
+        - R_pl
+        - mass
+        - T_bottom
+        - temp_node_1
+        - temp_node_2
+        - temp_node_3
+        - temp_node_4
+        - temp_node_5
+        - temp_node_6
+        - temp_node_7
+        - temp_node_8
+        - temp_node_9
+        - H2O_mol_scale
+        - CO2_mol_scale
+        - CO_mol_scale
+        - CH4_mol_scale
+        - NH3_mol_scale
+        - PH3_mol_scale
+        - H2S_mol_scale
+        - 15NH3_mol_scale
+        - HCN_mol_scale
+        - TiO_mol_scale
+        - VO_mol_scale
+        - bfactor_noise_miri
+      pressure_scaling: 10
+      pressure_simple: 100
+      pressure_width: 3
+      scale: 1.0e5
+      N_nodes: 10
+      N_data_sets: 9.0
+      D_pl: 9.9
+      AMR: false
+      do_scat_emis: false
+      contribution: true
+      PT_plot_mode: false
+      conv: true
+      a: 4.9
+      b: 19
+
+  cloudfree_hst:
+    type: simulators.simulator.Simulator
+    kwargs:
+      emission_model_diseq:
+        type: simulators.emission_models.emission_model.emission_model_diseq
+        kwargs: {}
+      PTprofile:
+        type: simulators.PTprofiles.PT_profiles.pt_profile
+        kwargs: {}
+      line_species: 
+        - CH4_hargreaves
+        - H2O_Exomol
+        - CO2
+        - CO_all_iso_HITEMP
+        - H2S
+        - NH3
+        - PH3
+        - 15NH3
+        - HCN
+        - TiO_all_Exomol
+        - VO
+      cloud_species: null
+      rayleigh_species: [H2, He]
+      continuum_opacities: [H2-H2, H2-He]
+      names: 
+        - R_pl
+        - mass
+        - T_bottom
+        - temp_node_1
+        - temp_node_2
+        - temp_node_3
+        - temp_node_4
+        - temp_node_5
+        - temp_node_6
+        - temp_node_7
+        - temp_node_8
+        - temp_node_9
+        - H2O_mol_scale
+        - CO2_mol_scale
+        - CO_mol_scale
+        - CH4_mol_scale
+        - NH3_mol_scale
+        - PH3_mol_scale
+        - H2S_mol_scale
+        - 15NH3_mol_scale
+        - HCN_mol_scale
+        - TiO_mol_scale
+        - VO_mol_scale
+        - mixture_fraction
+        - Cushing_scale_factor_h
+        - bfactor_noise_hst
+      pressure_scaling: 10
+      pressure_simple: 100
+      pressure_width: 3
+      scale: 1.0e5
+      N_nodes: 10
+      N_data_sets: 9.0
+      D_pl: 9.9
+      AMR: false
+      do_scat_emis: false
+      contribution: true
+      PT_plot_mode: false
+      conv: true
+      a: 0.98
+      b: 2.2
+
+  cloudfree_gemini:
+    type: simulators.simulator.Simulator
+    kwargs:
+      emission_model_diseq:
+        type: simulators.emission_models.emission_model.emission_model_diseq
+        kwargs: {}
+      PTprofile:
+        type: simulators.PTprofiles.PT_profiles.pt_profile
+        kwargs: {}
+      line_species: 
+        - CH4_hargreaves
+        - H2O_Exomol
+        - CO2
+        - CO_all_iso_HITEMP
+        - H2S
+        - NH3
+        - PH3
+        - 15NH3
+        - HCN
+        - TiO_all_Exomol
+        - VO
+      cloud_species: null
+      rayleigh_species: [H2, He]
+      continuum_opacities: [H2-H2, H2-He]
+      names: 
+        - R_pl
+        - mass
+        - T_bottom
+        - temp_node_1
+        - temp_node_2
+        - temp_node_3
+        - temp_node_4
+        - temp_node_5
+        - temp_node_6
+        - temp_node_7
+        - temp_node_8
+        - temp_node_9
+        - H2O_mol_scale
+        - CO2_mol_scale
+        - CO_mol_scale
+        - CH4_mol_scale
+        - NH3_mol_scale
+        - PH3_mol_scale
+        - H2S_mol_scale
+        - 15NH3_mol_scale
+        - HCN_mol_scale
+        - TiO_mol_scale
+        - VO_mol_scale
+        - mixture_fraction
+        - Cushing_scale_factor_g
+        - bfactor_noise_gemini
+      pressure_scaling: 10
+      pressure_simple: 100
+      pressure_width: 3
+      scale: 1.0e5
+      N_nodes: 10
+      N_data_sets: 9.0
+      D_pl: 9.9
+      AMR: false
+      do_scat_emis: false
+      contribution: true
+      PT_plot_mode: false
+      conv: true
+      a: 0.98
+      b: 2.2
+
+prior_config:
+  distribution:
+    type: priors.BoxUniform
+    kwargs: {}
+
+  parameters:
+    - name: R_pl
+      label: "$R_{P}$"
+      lower: 0.5
+      upper: 3
+
+    - name: mass
+      label: "$Mass$"
+      lower: 1
+      upper: 50
+
+    - name: T_bottom
+      label: "$T_{bottom}$"
+      lower: 100
+      upper: 9000
+
+    - name: temp_node_1
+      label: "$tnode1$"
+      lower: 0.2
+      upper: 1.0
+
+    - name: temp_node_2
+      label: "$tnode2$"
+      lower: 0.2
+      upper: 1.0
+
+    - name: temp_node_3
+      label: "$tnode3$"
+      lower: 0.2
+      upper: 1.0
+
+    - name: temp_node_4
+      label: "$tnode4$"
+      lower: 0.2
+      upper: 1.0
+
+    - name: temp_node_5
+      label: "$tnode5$"
+      lower: 0.2
+      upper: 1.0
+
+    - name: temp_node_6
+      label: "$tnode6$"
+      lower: 0.2
+      upper: 1.0
+
+    - name: temp_node_7
+      label: "$tnode7$"
+      lower: 0.2
+      upper: 1.0
+
+    - name: temp_node_8
+      label: "$tnode8$"
+      lower: 0.2
+      upper: 1.0
+
+    - name: temp_node_9
+      label: "$tnode9$"
+      lower: 0.2
+      upper: 1.0
+
+    - name: H2O_mol_scale
+      label: "$H_2O$"
+      lower: -10
+      upper: 0
+
+    - name: CO2_mol_scale
+      label: "$CO_2$"
+      lower: -10
+      upper: 0
+
+    - name: CO_mol_scale
+      label: "$CO$"
+      lower: -10
+      upper: 0
+
+    - name: CH4_mol_scale
+      label: "$CH_4$"
+      lower: -10
+      upper: 0
+
+    - name: NH3_mol_scale
+      label: "$NH_3$"
+      lower: -10
+      upper: 0
+
+    - name: PH3_mol_scale
+      label: "$PH_3$"
+      lower: -10
+      upper: 0
+
+    - name: H2S_mol_scale
+      label: "$H_2S$"
+      lower: -10
+      upper: 0
+
+    - name: 15NH3_mol_scale
+      label: "$^{15}NH_3$"
+      lower: -10
+      upper: 0
+
+    - name: HCN_mol_scale
+      label: "$HCN$"
+      lower: -10
+      upper: 0
+
+    - name: TiO_mol_scale
+      label: "$TiO$"
+      lower: -10
+      upper: 0
+
+    - name: VO_mol_scale
+      label: "$VO$"
+      lower: -10
+      upper: 0
+
+    - name: bfactor_noise_gemini
+      label: "$b_{g}$"
+      lower: -15
+      upper: -7
+
+    - name: bfactor_noise_hst
+      label: "$b_{w}$"
+      lower: -15
+      upper: -7
+
+    - name: bfactor_noise_miri
+      label: "$b_{m}$"
+      lower: -15
+      upper: -7
+
+estimator_config:
+  flow:
+    type: estimator.flows.npe.NPEFlow
+    kwargs:
+      hidden_features_no: 5
+      hidden_features: [512]
+      transforms: 5
+      signal: 32
+      build: NAF
+
+  embedding:
+    type: estimator.embedding.softclip.SoftclipResMLP
+    kwargs:
+      bound: 100.0
+      instruments:
+        miri:
+          hidden_features: [3, 5, 7]
+          input_dim: 1298
+          output_dim: 64
+        gemini:
+          hidden_features: [2, 3, 5]
+          input_dim: 434
+          output_dim: 16
+
+
+training_config:
+  optimizer:
+    type: AdamW
+    kwargs:
+      init_lr: 5.0e-4
+      weight_decay: 1.0e-3
+
+  scheduler:
+    type: ReduceLROnPlateau
+    kwargs:
+      factor: 0.5
+      min_lr: 1.0e-8
+      patience: 32
+      threshold: 0.01
+
+  loss: 
+    type: training.losses.BNPELoss
+    kwargs: {}
+
+  epoch_start: 0
+  batch_size: 1024
+  epoch_final: 800
+  gradient_steps_train: 1700
+  gradient_steps_valid: 170
+  clip_grad_norm: 1.0
+  stop_criterion: late_lr
+  device: cpu
+  checkpoint_interval: 100
+  output_dir: runs/cloudfree/WISEJ1738/MIRI+HST+Gemini
+
+wandb:
+  project: JWST_aws
+  title: "1"

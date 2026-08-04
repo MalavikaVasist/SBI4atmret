@@ -18,7 +18,7 @@ from pathlib import Path
 from itertools import starmap
 
 # petitRADTRANS requires this before import
-os.environ['pRT_input_data_path'] = '/media/mvasist/Elements/PhDprojects/scratch/input_data_v2.4.9/input_data'
+os.environ['pRT_input_data_path'] = '/home/ubuntu/input_data'
 
 import numpy as np
 import torch
@@ -46,7 +46,8 @@ def parse_args():
     parser.add_argument("--aggregate-only", action="store_true",
                         help="Only aggregate existing batches into train/valid/test splits.")
     parser.add_argument("--parallel", action="store_true",
-                        help="Submit as SLURM array job via dawgz (parallel generation).")
+                        help="Submit as SLURM array job via dawgz (parallel generation). "
+                             "If sbatch is unavailable, omit this flag and run a single local job.")
     parser.add_argument("--conda-env", type=str, default="test",
                         help="Conda environment name for SLURM jobs.")
     parser.add_argument("--cpus", type=int, default=1, help="CPUs per SLURM job.")
@@ -493,7 +494,7 @@ def main():
     if args.parallel:
         from dawgz import job, schedule
 
-        @job(array=args.array, cpus=args.cpus, gpus=args.gpus, ram=args.ram, time=args.time)
+        @job(array=args.n_array, cpus=args.cpus, gpus=args.gpus, ram=args.ram, time=args.time)
         def generate_batch_job(array_index: int):
             generate_batch_file(
                 config, simulators, prior, theta_mapper,
@@ -509,7 +510,7 @@ def main():
                 f"conda activate {args.conda_env}",
             ],
         )
-        print(f"\nSubmitted {args.array} SLURM jobs.")
+        print(f"\nSubmitted {args.n_array} SLURM jobs.")
         print("After all jobs complete, run with --aggregate-only to combine.")
         return
 
